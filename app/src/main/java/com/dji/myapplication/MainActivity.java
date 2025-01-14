@@ -144,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.i(TAG, "loadMission - onClick");
 
                 // Copy KMZ file to external storage
-                File kmzFile = Util.copyKMZToExternalStorage(view.getContext(), "azz.kmz");
+                File kmzFile = Util.copyKMZToExternalStorage(view.getContext(), "mission.kmz");
 
                 // Initialize WaypointMissionManager
                 WaypointMissionManager.getInstance().init();
