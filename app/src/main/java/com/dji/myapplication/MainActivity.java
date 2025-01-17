@@ -1,5 +1,6 @@
 package com.dji.myapplication;
 
+import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
@@ -12,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.dji.industry.mission.waypointv2.common.waypointv2.WaypointExecuteData;
 import com.dji.wpmzsdk.common.data.KMZInfo;
 import com.dji.wpmzsdk.manager.WPMZManager;
 import com.google.android.gms.maps.CameraUpdate;
@@ -23,9 +25,12 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 
 import java.io.File;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 import dji.sdk.keyvalue.key.FlightControllerKey;
 import dji.sdk.keyvalue.key.GimbalKey;
@@ -34,6 +39,8 @@ import dji.sdk.keyvalue.value.common.Attitude;
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D;
 import dji.sdk.keyvalue.value.common.LocationCoordinate3D;
 import dji.sdk.keyvalue.value.common.Velocity3D;
+import dji.sdk.keyvalue.value.mission.Waypoint;
+import dji.sdk.wpmz.value.mission.WaylineExecuteWaypoint;
 import dji.v5.common.callback.CommonCallbacks;
 import dji.v5.common.error.IDJIError;
 import dji.v5.common.register.DJISDKInitEvent;
@@ -42,6 +49,7 @@ import dji.v5.manager.SDKManager;
 import dji.v5.manager.aircraft.simulator.InitializationSettings;
 import dji.v5.manager.aircraft.simulator.SimulatorManager;
 import dji.v5.manager.aircraft.waypoint3.WaypointMissionManager;
+import dji.v5.manager.aircraft.waypoint3.model.WaylineExecutingInfo;
 import dji.v5.manager.interfaces.SDKManagerCallback;
 
 
@@ -150,8 +158,11 @@ public class MainActivity extends AppCompatActivity {
                 WaypointMissionManager.getInstance().init();
 
                 // Get KMZ Info (Optional)
-                KMZInfo ii = WPMZManager.getInstance().getKMZInfo(kmzFile.getAbsolutePath());
-                Log.d("Command Execution :", "Checking file info: " + kmzFile.getAbsolutePath() + ": " + ii.getWaylineMissionConfigParseInfo().toString());
+                KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(kmzFile.getAbsolutePath());
+                Log.d("Command Execution :", "Checking file info: " + kmzFile.getAbsolutePath() + ": " + kmzInfo.getWaylineMissionConfigParseInfo().toString());
+
+                // Update the mission on the map
+                updateMissionOnMap(kmzInfo);
 
                 // Push KMZ File to Aircraft
                 WaypointMissionManager.getInstance().pushKMZFileToAircraft(kmzFile.getAbsolutePath(), new CommonCallbacks.CompletionCallbackWithProgress<Double>() {
@@ -212,6 +223,82 @@ public class MainActivity extends AppCompatActivity {
             });
         }
     }
+
+    private void updateMissionOnMap(KMZInfo kmzInfo) {
+        if (gMap == null || kmzInfo == null) {
+            return; // Exit if the map or the KMZInfo is null
+        }
+
+        // Clear any existing markers and overlays from the map
+        gMap.clear();
+
+        // Define the home location
+        LatLng homeLatLng = new LatLng(home.getLatitude(), home.getLongitude());
+
+        // Move the camera to the home location
+        gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(homeLatLng, 15)); // Adjust zoom level as needed
+
+        // Add a marker for the home location
+        gMap.addMarker(new MarkerOptions()
+                .position(homeLatLng)
+                .title("Home")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))); // Set marker color to green
+
+        // Retrieve the waypoints from the kmzInfo
+        List<WaylineExecuteWaypoint> waypoints = kmzInfo.getWaylineWaylinesParseInfo()
+                .getWaylines()
+                .get(0) // Assuming only one wayline
+                .getWaypoints();
+
+        // Collect LatLng points for polyline
+        List<LatLng> polylinePoints = new ArrayList<>();
+        polylinePoints.add(homeLatLng); // Start with the home location
+
+        // Add markers for waypoints and collect polyline points
+        for (WaylineExecuteWaypoint waypoint : waypoints) {
+            double latitude = waypoint.getLocation().getLatitude();
+            double longitude = waypoint.getLocation().getLongitude();
+            int waypointIndex = waypoint.getWaypointIndex();
+
+            LatLng waypointLatLng = new LatLng(latitude, longitude);
+            polylinePoints.add(waypointLatLng); // Add waypoint to polyline points
+
+            // Add a marker for the waypoint
+            gMap.addMarker(new MarkerOptions()
+                    .position(waypointLatLng)
+                    .title("Waypoint " + waypointIndex)
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))); // Set marker color to red
+        }
+
+        // Close the polyline loop by adding the home location again
+        polylinePoints.add(homeLatLng);
+
+        // Draw the first segment (home to first waypoint) in magenta
+        if (polylinePoints.size() > 1) {
+            gMap.addPolyline(new PolylineOptions()
+                    .add(polylinePoints.get(0), polylinePoints.get(1))
+                    .color(Color.MAGENTA)
+                    .width(5));
+        }
+
+        // Draw intermediate segments (waypoints to waypoints) in blue
+        for (int i = 1; i < polylinePoints.size() - 2; i++) {
+            gMap.addPolyline(new PolylineOptions()
+                    .add(polylinePoints.get(i), polylinePoints.get(i + 1))
+                    .color(Color.BLUE)
+                    .width(5));
+        }
+
+        // Draw the last segment (last waypoint to home) in magenta
+        if (polylinePoints.size() > 2) {
+            gMap.addPolyline(new PolylineOptions()
+                    .add(polylinePoints.get(polylinePoints.size() - 2), polylinePoints.get(polylinePoints.size() - 1))
+                    .color(Color.MAGENTA)
+                    .width(5));
+        }
+    }
+
+
 
     private void initMapView() {
         // Add a marker to the map
