@@ -13,7 +13,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.dji.industry.mission.waypointv2.common.waypointv2.WaypointExecuteData;
 import com.dji.wpmzsdk.common.data.KMZInfo;
 import com.dji.wpmzsdk.manager.WPMZManager;
 import com.google.android.gms.maps.CameraUpdate;
@@ -39,7 +38,6 @@ import dji.sdk.keyvalue.value.common.Attitude;
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D;
 import dji.sdk.keyvalue.value.common.LocationCoordinate3D;
 import dji.sdk.keyvalue.value.common.Velocity3D;
-import dji.sdk.keyvalue.value.mission.Waypoint;
 import dji.sdk.wpmz.value.mission.WaylineExecuteWaypoint;
 import dji.v5.common.callback.CommonCallbacks;
 import dji.v5.common.error.IDJIError;
@@ -48,13 +46,20 @@ import dji.v5.manager.KeyManager;
 import dji.v5.manager.SDKManager;
 import dji.v5.manager.aircraft.simulator.InitializationSettings;
 import dji.v5.manager.aircraft.simulator.SimulatorManager;
+import dji.v5.manager.aircraft.waypoint3.WaypointActionListener;
 import dji.v5.manager.aircraft.waypoint3.WaypointMissionManager;
-import dji.v5.manager.aircraft.waypoint3.model.WaylineExecutingInfo;
+import dji.v5.manager.datacenter.MediaDataCenter;
+import dji.v5.manager.interfaces.ICameraStreamManager;
 import dji.v5.manager.interfaces.SDKManagerCallback;
 
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
+    Button startSimulator;
+    Button stopSimulator;
+    Button loadMission;
+    Button startMission;
+    Button stopMission;
     private TextView isDroneConnected;
     private TextView battery;
     private TextView isSimulatorOn;
@@ -62,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView gimbalPitchYaw; // Pitch, Yaw
     private TextView positionXYZ;
     private TextView speed;
+    private TextView log;
     private GoogleMap gMap;
     private Marker droneMarker = null;
 
@@ -79,16 +85,15 @@ public class MainActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_main);
         initUI();
-//        mapView.onCreate(savedInstanceState);
         registerApp();
     }
 
     public void initUI() {
-        Button startSimulator = findViewById(R.id.button_start_simulator);
-        Button stopSimulator = findViewById(R.id.button_stop_simulator);
-        Button loadMission = findViewById(R.id.button_load_mission);
-        Button startMission = findViewById(R.id.button_start_mission);
-        Button stopMission = findViewById(R.id.button_stop_mission);
+        startSimulator = findViewById(R.id.button_start_simulator);
+        stopSimulator = findViewById(R.id.button_stop_simulator);
+        loadMission = findViewById(R.id.button_load_mission);
+        startMission = findViewById(R.id.button_start_mission);
+        stopMission = findViewById(R.id.button_stop_mission);
 
         isDroneConnected = findViewById(R.id.textview_is_drone_connected);
         battery = findViewById(R.id.textview_battery);
@@ -97,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
         gimbalPitchYaw = findViewById(R.id.textview_gimbal_pitch_yaw);
         positionXYZ = findViewById(R.id.textview_position_x_y_z);
         speed = findViewById(R.id.textview_speed);
+        log = findViewById(R.id.textview_log);
 
         startSimulator.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -107,6 +113,8 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess() {
                         isSimulatorOn.setText("true");
+                        stopSimulator.setEnabled(true);
+                        startSimulator.setEnabled(false);
                         Log.i(TAG, "enableSimulator - onSuccess");
                         setSimulatorStateListener();
 
@@ -134,6 +142,8 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess() {
                         isSimulatorOn.setText("false");
+                        stopSimulator.setEnabled(false);
+                        startSimulator.setEnabled(true);
                         Log.i(TAG, "disableSimulator - onSuccess");
                     }
 
@@ -174,6 +184,30 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess() {
                         Log.i(TAG, "KMZ mission uploaded successfully.");
+                        startMission.setEnabled(true);
+                        WaypointMissionManager.getInstance().addWaypointActionListener(new WaypointActionListener() {
+                            @Override
+                            public void onExecutionStart(int actionId) {
+                                Log.i(TAG, "onExecutionStart - actionId=" + actionId);
+                            }
+
+                            @Override
+                            public void onExecutionFinish(int actionId, @Nullable IDJIError error) {
+                                Log.i(TAG, "onExecutionFinish - actionId=" + actionId);
+                            }
+
+                            @Override
+                            public void onExecutionStart(int actionGroup, int actionId) {
+                                Log.i(TAG, "onExecutionStart - actionGroup=" + actionGroup + ", actionId=" + actionId);
+                                log.setText("Starting WP=" + actionGroup + " A=" + actionId);
+                            }
+
+                            @Override
+                            public void onExecutionFinish(int actionGroup, int actionId, @Nullable IDJIError error) {
+                                Log.i(TAG, "onExecutionFinish - actionGroup=" + actionGroup + ", actionId=" + actionId);
+                                log.setText("Finishing WP=" + actionGroup + " A=" + actionId);
+                            }
+                        });
                     }
 
                     @Override
@@ -193,7 +227,8 @@ public class MainActivity extends AppCompatActivity {
                 WaypointMissionManager.getInstance().startMission("test", new CommonCallbacks.CompletionCallback() {
                     @Override
                     public void onSuccess() {
-
+                        startMission.setEnabled(false);
+                        stopMission.setEnabled(true);
                     }
 
                     @Override
@@ -207,6 +242,8 @@ public class MainActivity extends AppCompatActivity {
         stopMission.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                startMission.setEnabled(true);
+                stopMission.setEnabled(false);
             }
         });
 
@@ -222,6 +259,10 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+
+        MediaDataCenter mediaDataCenter = (MediaDataCenter) MediaDataCenter.getInstance();
+
+//        mediaDataCenter.getCameraStreamManager().
     }
 
     private void updateMissionOnMap(KMZInfo kmzInfo) {
@@ -232,17 +273,14 @@ public class MainActivity extends AppCompatActivity {
         // Clear any existing markers and overlays from the map
         gMap.clear();
 
-        // Define the home location
         LatLng homeLatLng = new LatLng(home.getLatitude(), home.getLongitude());
-
-        // Move the camera to the home location
-        gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(homeLatLng, 15)); // Adjust zoom level as needed
+        gMap.moveCamera(CameraUpdateFactory.newLatLng(homeLatLng));
 
         // Add a marker for the home location
         gMap.addMarker(new MarkerOptions()
                 .position(homeLatLng)
                 .title("Home")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN))); // Set marker color to green
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
 
         // Retrieve the waypoints from the kmzInfo
         List<WaylineExecuteWaypoint> waypoints = kmzInfo.getWaylineWaylinesParseInfo()
@@ -267,7 +305,7 @@ public class MainActivity extends AppCompatActivity {
             gMap.addMarker(new MarkerOptions()
                     .position(waypointLatLng)
                     .title("Waypoint " + waypointIndex)
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))); // Set marker color to red
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
         }
 
         // Close the polyline loop by adding the home location again
@@ -298,12 +336,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
-
     private void initMapView() {
         // Add a marker to the map
-        gMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
-        gMap.moveCamera(CameraUpdateFactory.zoomTo(18));
+        gMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
+        gMap.moveCamera(CameraUpdateFactory.zoomTo(17));
 
         updateDroneLocation();
         cameraUpdate();
@@ -377,6 +413,8 @@ public class MainActivity extends AppCompatActivity {
                     public void onValueChange(@Nullable Boolean oldValue, @Nullable Boolean newValue) {
                         if (newValue != null) {
                             isDroneConnected.setText(newValue.toString());
+                            startSimulator.setEnabled(true);
+                            loadMission.setEnabled(true);
                         } else {
                             isDroneConnected.setText("false");
                         }

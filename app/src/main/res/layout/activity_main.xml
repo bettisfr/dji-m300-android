@@ -34,6 +34,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:enabled="false"
                 android:text="Start" />
 
             <Button
@@ -65,6 +66,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:enabled="false"
                 android:text="Load" />
 
             <Button
@@ -72,6 +74,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:enabled="false"
                 android:text="Start" />
 
             <Button
@@ -79,6 +82,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:enabled="false"
                 android:text="Stop" />
         </LinearLayout>
     </LinearLayout>
@@ -88,7 +92,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:columnCount="2"
-        android:padding="16dp"
+        android:padding="4dp"
         android:layout_margin="8dp"
         android:background="?android:attr/selectableItemBackground">
 
@@ -99,7 +103,7 @@
             android:textStyle="bold"
             android:layout_columnSpan="2"
             android:gravity="center"
-            android:paddingBottom="8dp"
+            android:paddingBottom="6dp"
             android:textSize="18sp" />
 
         <TextView
@@ -210,17 +214,50 @@
     </GridLayout>
 
 
+
+
     <fragment
         android:id="@+id/map_view"
         class="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
-        android:layout_height="275dp"
+        android:layout_height="200dp"
         tools:layout="@layout/map_preview_layout" />
 
-    <!--    <com.google.android.gms.maps.MapView-->
-    <!--        android:id="@+id/map_view"-->
-    <!--        android:layout_width="match_parent"-->
-    <!--        android:layout_height="275dp" />-->
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="2"
+        android:padding="16dp"
+        android:layout_margin="8dp"
+        android:background="?android:attr/selectableItemBackground">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Info"
+            android:textStyle="bold"
+            android:layout_columnSpan="2"
+            android:gravity="center"
+            android:paddingBottom="4dp"
+            android:textSize="18sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Log"
+            android:layout_gravity="start"
+            android:padding="1dp" />
+
+        <TextView
+            android:id="@+id/textview_log"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="-"
+            android:layout_gravity="end"
+            android:padding="1dp" />
+
+    </GridLayout>
 
 
 </LinearLayout>
