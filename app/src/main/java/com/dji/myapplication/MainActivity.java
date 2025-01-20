@@ -38,18 +38,22 @@ import dji.sdk.keyvalue.value.common.Attitude;
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D;
 import dji.sdk.keyvalue.value.common.LocationCoordinate3D;
 import dji.sdk.keyvalue.value.common.Velocity3D;
+import dji.sdk.keyvalue.value.rtkbasestation.RTKCustomNetworkSetting;
+import dji.sdk.keyvalue.value.rtkbasestation.RTKReferenceStationSource;
 import dji.sdk.wpmz.value.mission.WaylineExecuteWaypoint;
 import dji.v5.common.callback.CommonCallbacks;
 import dji.v5.common.error.IDJIError;
 import dji.v5.common.register.DJISDKInitEvent;
 import dji.v5.manager.KeyManager;
 import dji.v5.manager.SDKManager;
+import dji.v5.manager.aircraft.rtk.RTKCenter;
 import dji.v5.manager.aircraft.simulator.InitializationSettings;
 import dji.v5.manager.aircraft.simulator.SimulatorManager;
 import dji.v5.manager.aircraft.waypoint3.WaypointActionListener;
 import dji.v5.manager.aircraft.waypoint3.WaypointMissionManager;
 import dji.v5.manager.datacenter.MediaDataCenter;
 import dji.v5.manager.interfaces.ICameraStreamManager;
+import dji.v5.manager.interfaces.IRTKStationManager;
 import dji.v5.manager.interfaces.SDKManagerCallback;
 
 
@@ -218,7 +222,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-
         startMission.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -246,6 +249,38 @@ public class MainActivity extends AppCompatActivity {
                 stopMission.setEnabled(false);
             }
         });
+
+//        RTKCenter.getInstance().setAircraftRTKModuleEnabled(true, new CommonCallbacks.CompletionCallback() {
+//            @Override
+//            public void onSuccess() {
+//                Log.i(TAG, "setAircraftRTKModuleEnabled - onSuccess");
+//
+//                RTKCenter.getInstance().setRTKReferenceStationSource(RTKReferenceStationSource.CUSTOM_NETWORK_SERVICE, new CommonCallbacks.CompletionCallback() {
+//                    @Override
+//                    public void onSuccess() {
+//                        RTKCustomNetworkSetting settings = new RTKCustomNetworkSetting();
+//                        settings.setUserName("pinotti_c");
+//                        settings.setPassword("crpi03r04");
+//                        settings.setServerAddress("80.17.45.14");
+//                        settings.setPort(2101);
+//
+//                        RTKCenter.getInstance().getCustomRTKManager().setCustomNetworkRTKSettings(settings);
+//
+//
+//                    }
+//
+//                    @Override
+//                    public void onFailure(@NonNull IDJIError idjiError) {
+//
+//                    }
+//                });
+//            }
+//
+//            @Override
+//            public void onFailure(@NonNull IDJIError idjiError) {
+//                Log.i(TAG, "setAircraftRTKModuleEnabled - onFailure");
+//            }
+//        });
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map_view);
         if (mapFragment != null) {
