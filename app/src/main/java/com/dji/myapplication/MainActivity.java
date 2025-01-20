@@ -4,6 +4,8 @@ import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Surface;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -31,10 +33,13 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
+import dji.sdk.keyvalue.key.CameraKey;
 import dji.sdk.keyvalue.key.FlightControllerKey;
 import dji.sdk.keyvalue.key.GimbalKey;
 import dji.sdk.keyvalue.key.KeyTools;
+import dji.sdk.keyvalue.value.camera.CameraVideoStreamSourceType;
 import dji.sdk.keyvalue.value.common.Attitude;
+import dji.sdk.keyvalue.value.common.ComponentIndexType;
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D;
 import dji.sdk.keyvalue.value.common.LocationCoordinate3D;
 import dji.sdk.keyvalue.value.common.Velocity3D;
@@ -52,6 +57,10 @@ import dji.v5.manager.aircraft.simulator.SimulatorManager;
 import dji.v5.manager.aircraft.waypoint3.WaypointActionListener;
 import dji.v5.manager.aircraft.waypoint3.WaypointMissionManager;
 import dji.v5.manager.datacenter.MediaDataCenter;
+import dji.v5.manager.datacenter.camera.CameraStreamManager;
+import dji.v5.manager.datacenter.livestream.LiveStreamManager;
+import dji.v5.manager.datacenter.livestream.LiveStreamStatus;
+import dji.v5.manager.datacenter.livestream.LiveStreamStatusListener;
 import dji.v5.manager.interfaces.ICameraStreamManager;
 import dji.v5.manager.interfaces.IRTKStationManager;
 import dji.v5.manager.interfaces.SDKManagerCallback;
@@ -80,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
     private double droneLatitude;
     private double droneLongitude;
     private double droneHeading;
-
+    private SurfaceView svCameraStream;
     LocationCoordinate2D home = new LocationCoordinate2D(43.062496, 12.550976);
 
     @Override
@@ -107,6 +116,9 @@ public class MainActivity extends AppCompatActivity {
         positionXYZ = findViewById(R.id.textview_position_x_y_z);
         speed = findViewById(R.id.textview_speed);
         log = findViewById(R.id.textview_log);
+
+        svCameraStream = findViewById(R.id.sv_camera_stream);
+        initRGCamera();
 
         startSimulator.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -294,10 +306,40 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+    }
 
-        MediaDataCenter mediaDataCenter = (MediaDataCenter) MediaDataCenter.getInstance();
+    private void initRGCamera() {
+        CameraStreamManager.getInstance().addAvailableCameraUpdatedListener(new ICameraStreamManager.AvailableCameraUpdatedListener() {
+            @Override
+            public void onAvailableCameraUpdated(@NonNull List<ComponentIndexType> availableCameraList) {
+                Log.i(TAG, "onAvailableCameraUpdated: " + availableCameraList.size());
 
-//        mediaDataCenter.getCameraStreamManager().
+                if (!availableCameraList.isEmpty()) {
+                    MediaDataCenter.getInstance().getCameraStreamManager().putCameraStreamSurface(
+                            ComponentIndexType.LEFT_OR_MAIN,
+                            svCameraStream.getHolder().getSurface(),
+                            svCameraStream.getWidth(),
+                            svCameraStream.getHeight(),
+                            ICameraStreamManager.ScaleType.CENTER_CROP
+                    );
+
+                    KeyManager.getInstance().setValue(KeyTools.createKey(CameraKey.KeyCameraVideoStreamSource), CameraVideoStreamSourceType.ZOOM_CAMERA, new CommonCallbacks.CompletionCallback() {
+                        @Override
+                        public void onSuccess() {
+                            Log.i(TAG, "onSuccess ZOOM_CAMERA");
+                        }
+
+                        @Override
+                        public void onFailure(@NonNull IDJIError idjiError) {
+                            Log.i(TAG, "onFailure ZOOM_CAMERA: " + idjiError);
+                        }
+
+                    });
+                }
+            }
+        });
+
+        svCameraStream.setVisibility(View.VISIBLE);
     }
 
     private void updateMissionOnMap(KMZInfo kmzInfo) {
