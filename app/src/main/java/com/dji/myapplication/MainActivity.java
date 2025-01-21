@@ -4,7 +4,6 @@ import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
@@ -45,6 +44,7 @@ import dji.sdk.keyvalue.value.common.LocationCoordinate3D;
 import dji.sdk.keyvalue.value.common.Velocity3D;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKCustomNetworkSetting;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKReferenceStationSource;
+import dji.sdk.keyvalue.value.rtkbasestation.RTKServiceState;
 import dji.sdk.wpmz.value.mission.WaylineExecuteWaypoint;
 import dji.v5.common.callback.CommonCallbacks;
 import dji.v5.common.error.IDJIError;
@@ -52,17 +52,18 @@ import dji.v5.common.register.DJISDKInitEvent;
 import dji.v5.manager.KeyManager;
 import dji.v5.manager.SDKManager;
 import dji.v5.manager.aircraft.rtk.RTKCenter;
+import dji.v5.manager.aircraft.rtk.RTKLocationInfo;
+import dji.v5.manager.aircraft.rtk.RTKLocationInfoListener;
+import dji.v5.manager.aircraft.rtk.RTKSystemState;
+import dji.v5.manager.aircraft.rtk.RTKSystemStateListener;
+import dji.v5.manager.aircraft.rtk.network.INetworkServiceInfoListener;
 import dji.v5.manager.aircraft.simulator.InitializationSettings;
 import dji.v5.manager.aircraft.simulator.SimulatorManager;
 import dji.v5.manager.aircraft.waypoint3.WaypointActionListener;
 import dji.v5.manager.aircraft.waypoint3.WaypointMissionManager;
 import dji.v5.manager.datacenter.MediaDataCenter;
 import dji.v5.manager.datacenter.camera.CameraStreamManager;
-import dji.v5.manager.datacenter.livestream.LiveStreamManager;
-import dji.v5.manager.datacenter.livestream.LiveStreamStatus;
-import dji.v5.manager.datacenter.livestream.LiveStreamStatusListener;
 import dji.v5.manager.interfaces.ICameraStreamManager;
-import dji.v5.manager.interfaces.IRTKStationManager;
 import dji.v5.manager.interfaces.SDKManagerCallback;
 
 
@@ -73,24 +74,25 @@ public class MainActivity extends AppCompatActivity {
     Button loadMission;
     Button startMission;
     Button stopMission;
+    Button startRTK;
+    Button stopRTK;
     private TextView isDroneConnected;
     private TextView battery;
     private TextView isSimulatorOn;
     private TextView droneYaw; // Pitch, Roll, Yaw
     private TextView gimbalPitchYaw; // Pitch, Yaw
-    private TextView positionXYZ;
+    private TextView distanceFromHome;
     private TextView speed;
     private TextView log;
     private GoogleMap gMap;
     private Marker droneMarker = null;
+    DecimalFormat decimalFormat = new DecimalFormat("#.##");
+    private SurfaceView svCameraStream;
 
     // Other stuff
-    DecimalFormat decimalFormat = new DecimalFormat("#.#");
-    private double droneLatitude;
-    private double droneLongitude;
+    LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
+    LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
     private double droneHeading;
-    private SurfaceView svCameraStream;
-    LocationCoordinate2D home = new LocationCoordinate2D(43.062496, 12.550976);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_main);
         initUI();
+        initRGBCamera();
         registerApp();
     }
 
@@ -107,45 +110,47 @@ public class MainActivity extends AppCompatActivity {
         loadMission = findViewById(R.id.button_load_mission);
         startMission = findViewById(R.id.button_start_mission);
         stopMission = findViewById(R.id.button_stop_mission);
+        startRTK = findViewById(R.id.button_start_rtk);
+        stopRTK = findViewById(R.id.button_stop_rtk);
 
         isDroneConnected = findViewById(R.id.textview_is_drone_connected);
         battery = findViewById(R.id.textview_battery);
         isSimulatorOn = findViewById(R.id.textview_is_simulator_on);
         droneYaw = findViewById(R.id.textview_drone_yaw);
         gimbalPitchYaw = findViewById(R.id.textview_gimbal_pitch_yaw);
-        positionXYZ = findViewById(R.id.textview_position_x_y_z);
+        distanceFromHome = findViewById(R.id.textview_distance_from_home);
         speed = findViewById(R.id.textview_speed);
+
         log = findViewById(R.id.textview_log);
 
         svCameraStream = findViewById(R.id.sv_camera_stream);
-        initRGCamera();
 
         startSimulator.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                InitializationSettings data = InitializationSettings.createInstance(home, 15);
+                // Fix home here, maybe it will be better to use something else
+                droneHomeLocation = new LocationCoordinate2D(43.062077, 12.550739);
+                updateDroneHomeAndCurrentLocation();
 
-                SimulatorManager.getInstance().enableSimulator(data, new CommonCallbacks.CompletionCallback() {
+                SimulatorManager.getInstance().enableSimulator(InitializationSettings.createInstance(droneHomeLocation, 15), new CommonCallbacks.CompletionCallback() {
                     @Override
                     public void onSuccess() {
+                        Log.i(TAG, "enableSimulator - onSuccess");
+
                         isSimulatorOn.setText("true");
                         stopSimulator.setEnabled(true);
                         startSimulator.setEnabled(false);
-                        Log.i(TAG, "enableSimulator - onSuccess");
-                        setSimulatorStateListener();
 
-                        LatLng pos = new LatLng(home.getLatitude(), home.getLongitude());
-                        gMap.addMarker(new MarkerOptions()
-                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
-                                .position(pos));
-
-                        updateDroneLocation();
+                        SimulatorManager.getInstance().addSimulatorStateListener(state -> {
+                            updateDroneHomeAndCurrentLocation();
+                        });
                     }
 
                     @Override
                     public void onFailure(@NonNull IDJIError error) {
-                        isSimulatorOn.setText("error");
                         Log.i(TAG, "enableSimulator - onFailure: " + error);
+
+                        isSimulatorOn.setText("error");
                     }
                 });
             }
@@ -157,16 +162,18 @@ public class MainActivity extends AppCompatActivity {
                 SimulatorManager.getInstance().disableSimulator(new CommonCallbacks.CompletionCallback() {
                     @Override
                     public void onSuccess() {
+                        Log.i(TAG, "disableSimulator - onSuccess");
+
                         isSimulatorOn.setText("false");
                         stopSimulator.setEnabled(false);
                         startSimulator.setEnabled(true);
-                        Log.i(TAG, "disableSimulator - onSuccess");
                     }
 
                     @Override
                     public void onFailure(@NonNull IDJIError error) {
-                        isSimulatorOn.setText("error");
                         Log.i(TAG, "disableSimulator - onFailure: " + error);
+
+                        isSimulatorOn.setText("error");
                     }
                 });
             }
@@ -177,20 +184,14 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Log.i(TAG, "loadMission - onClick");
 
-                // Copy KMZ file to external storage
                 File kmzFile = Util.copyKMZToExternalStorage(view.getContext(), "mission.kmz");
-
-                // Initialize WaypointMissionManager
                 WaypointMissionManager.getInstance().init();
-
-                // Get KMZ Info (Optional)
                 KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(kmzFile.getAbsolutePath());
+
                 Log.d("Command Execution :", "Checking file info: " + kmzFile.getAbsolutePath() + ": " + kmzInfo.getWaylineMissionConfigParseInfo().toString());
 
-                // Update the mission on the map
-                updateMissionOnMap(kmzInfo);
+                setMissionOnMap(kmzInfo);
 
-                // Push KMZ File to Aircraft
                 WaypointMissionManager.getInstance().pushKMZFileToAircraft(kmzFile.getAbsolutePath(), new CommonCallbacks.CompletionCallbackWithProgress<Double>() {
                     @Override
                     public void onProgressUpdate(Double progress) {
@@ -200,6 +201,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess() {
                         Log.i(TAG, "KMZ mission uploaded successfully.");
+
                         startMission.setEnabled(true);
                         WaypointMissionManager.getInstance().addWaypointActionListener(new WaypointActionListener() {
                             @Override
@@ -215,12 +217,14 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void onExecutionStart(int actionGroup, int actionId) {
                                 Log.i(TAG, "onExecutionStart - actionGroup=" + actionGroup + ", actionId=" + actionId);
+
                                 log.setText("Starting WP=" + actionGroup + " A=" + actionId);
                             }
 
                             @Override
                             public void onExecutionFinish(int actionGroup, int actionId, @Nullable IDJIError error) {
                                 Log.i(TAG, "onExecutionFinish - actionGroup=" + actionGroup + ", actionId=" + actionId);
+
                                 log.setText("Finishing WP=" + actionGroup + " A=" + actionId);
                             }
                         });
@@ -239,16 +243,18 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 Log.i(TAG, "startMission - onClick");
 
-                WaypointMissionManager.getInstance().startMission("test", new CommonCallbacks.CompletionCallback() {
+                WaypointMissionManager.getInstance().startMission("mission", new CommonCallbacks.CompletionCallback() {
                     @Override
                     public void onSuccess() {
+                        Log.i(TAG, "startMission - onClick - onSuccess");
+
                         startMission.setEnabled(false);
                         stopMission.setEnabled(true);
                     }
 
                     @Override
                     public void onFailure(@NonNull IDJIError idjiError) {
-
+                        Log.i(TAG, "startMission - onClick - onFailure: " + idjiError);
                     }
                 });
             }
@@ -257,42 +263,45 @@ public class MainActivity extends AppCompatActivity {
         stopMission.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                Log.i(TAG, "stopMission - onClick");
+
                 startMission.setEnabled(true);
                 stopMission.setEnabled(false);
             }
         });
 
-//        RTKCenter.getInstance().setAircraftRTKModuleEnabled(true, new CommonCallbacks.CompletionCallback() {
-//            @Override
-//            public void onSuccess() {
-//                Log.i(TAG, "setAircraftRTKModuleEnabled - onSuccess");
-//
-//                RTKCenter.getInstance().setRTKReferenceStationSource(RTKReferenceStationSource.CUSTOM_NETWORK_SERVICE, new CommonCallbacks.CompletionCallback() {
-//                    @Override
-//                    public void onSuccess() {
-//                        RTKCustomNetworkSetting settings = new RTKCustomNetworkSetting();
-//                        settings.setUserName("pinotti_c");
-//                        settings.setPassword("crpi03r04");
-//                        settings.setServerAddress("80.17.45.14");
-//                        settings.setPort(2101);
-//
-//                        RTKCenter.getInstance().getCustomRTKManager().setCustomNetworkRTKSettings(settings);
-//
-//
-//                    }
-//
-//                    @Override
-//                    public void onFailure(@NonNull IDJIError idjiError) {
-//
-//                    }
-//                });
-//            }
-//
-//            @Override
-//            public void onFailure(@NonNull IDJIError idjiError) {
-//                Log.i(TAG, "setAircraftRTKModuleEnabled - onFailure");
-//            }
-//        });
+        startRTK.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.i(TAG, "startRTK - onClick");
+
+                stopRTK.setEnabled(true);
+
+                initRTK();
+            }
+        });
+
+        stopRTK.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.i(TAG, "stopRTK - onClick");
+
+//                startRTK.setEnabled(true);
+//                stopRTK.setEnabled(false);
+
+                RTKCenter.getInstance().setAircraftRTKModuleEnabled(false, new CommonCallbacks.CompletionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Log.i(TAG, "setAircraftRTKModuleEnabled - false - onSuccess");
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull IDJIError idjiError) {
+                        Log.i(TAG, "setAircraftRTKModuleEnabled - false - onFailure: " + idjiError);
+                    }
+                });
+            }
+        });
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map_view);
         if (mapFragment != null) {
@@ -308,7 +317,116 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void initRGCamera() {
+    private void initRTK() {
+        RTKCenter.getInstance().setAircraftRTKModuleEnabled(true, new CommonCallbacks.CompletionCallback() {
+            @Override
+            public void onSuccess() {
+                Log.i(TAG, "setAircraftRTKModuleEnabled - true - onSuccess");
+
+                RTKCenter.getInstance().getAircraftRTKModuleEnabled(new CommonCallbacks.CompletionCallbackWithParam<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean aBoolean) {
+                        Log.i(TAG, "getAircraftRTKModuleEnabled - onSuccess: " + aBoolean.toString());
+
+                        RTKCenter.getInstance().setRTKReferenceStationSource(RTKReferenceStationSource.CUSTOM_NETWORK_SERVICE, new CommonCallbacks.CompletionCallback() {
+                            @Override
+                            public void onSuccess() {
+                                Log.i(TAG, "setRTKReferenceStationSource - onSuccess");
+
+                                RTKCenter.getInstance().getCustomRTKManager().addNetworkRTKServiceInfoListener(new INetworkServiceInfoListener() {
+                                    @Override
+                                    public void onServiceStateUpdate(RTKServiceState state) {
+                                        Log.i(TAG, "addNetworkRTKServiceInfoListener - onServiceStateUpdate:" + state.toString());
+
+                                        RTKCenter.getInstance().getCustomRTKManager().setCustomNetworkRTKSettings(new RTKCustomNetworkSetting(
+                                                "46.254.154.14",
+                                                2101,
+                                                "pinotti_c",
+                                                "crpi03r04",
+                                                "NRT30"
+                                        ));
+
+//                                        RTKCenter.getInstance().getCustomRTKManager().getNetworkRTKCoordinateSystem(new CommonCallbacks.CompletionCallbackWithParam<CoordinateSystem>() {
+//                                            @Override
+//                                            public void onSuccess(CoordinateSystem coordinateSystem) {
+//                                                Log.i(TAG, "getNetworkRTKCoordinateSystem - onSuccess:" + coordinateSystem.toString());
+//                                            }
+//
+//                                            @Override
+//                                            public void onFailure(@NonNull IDJIError idjiError) {
+//                                                Log.i(TAG, "getNetworkRTKCoordinateSystem - onFailure:" + idjiError);
+//                                            }
+//                                        });
+
+                                        RTKCenter.getInstance().getCustomRTKManager().startNetworkRTKService(new CommonCallbacks.CompletionCallback() {
+                                            @Override
+                                            public void onSuccess() {
+                                                Log.i(TAG, "startNetworkRTKService - onSuccess:");
+                                            }
+
+                                            @Override
+                                            public void onFailure(@NonNull IDJIError idjiError) {
+                                                Log.i(TAG, "startNetworkRTKService - onFailure:" + idjiError);
+                                            }
+                                        });
+
+                                        RTKCenter.getInstance().addRTKLocationInfoListener(new RTKLocationInfoListener() {
+                                            @Override
+                                            public void onUpdate(RTKLocationInfo newValue) {
+//                                                Log.i(TAG, "addRTKLocationInfoListener - onUpdate: " + newValue.toString());
+                                                double stdLatitude = newValue.getRtkLocation().getStdLatitude();
+                                                double stdLongitude = newValue.getRtkLocation().getStdLongitude();
+                                                double stdAltitude = newValue.getRtkLocation().getStdAltitude();
+
+                                                log.setText(String.format(
+                                                        "%s, %s, %s",
+                                                        decimalFormat.format(stdLatitude),
+                                                        decimalFormat.format(stdLongitude),
+                                                        decimalFormat.format(stdAltitude)
+                                                ));
+
+//                                                double latitude = newValue.getReal3DLocation().getLatitude();
+//                                                double longitude = newValue.getReal3DLocation().getLongitude();
+                                            }
+                                        });
+
+                                        RTKCenter.getInstance().addRTKSystemStateListener(new RTKSystemStateListener() {
+                                            @Override
+                                            public void onUpdate(RTKSystemState newValue) {
+                                                Log.i(TAG, "addRTKSystemStateListener - onUpdate: " + newValue.toString());
+                                            }
+                                        });
+                                    }
+
+                                    @Override
+                                    public void onErrorCodeUpdate(IDJIError code) {
+                                        Log.i(TAG, "addNetworkRTKServiceInfoListener - onErrorCodeUpdate: " + code.toString());
+                                    }
+                                });
+                            }
+
+                            @Override
+                            public void onFailure(@NonNull IDJIError idjiError) {
+                                Log.i(TAG, "setRTKReferenceStationSource - onFailure");
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull IDJIError idjiError) {
+                        Log.i(TAG, "getAircraftRTKModuleEnabled - onFailure: " + idjiError);
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(@NonNull IDJIError idjiError) {
+                Log.i(TAG, "setAircraftRTKModuleEnabled - true - onFailure");
+            }
+        });
+    }
+
+    private void initRGBCamera() {
         CameraStreamManager.getInstance().addAvailableCameraUpdatedListener(new ICameraStreamManager.AvailableCameraUpdatedListener() {
             @Override
             public void onAvailableCameraUpdated(@NonNull List<ComponentIndexType> availableCameraList) {
@@ -342,53 +460,45 @@ public class MainActivity extends AppCompatActivity {
         svCameraStream.setVisibility(View.VISIBLE);
     }
 
-    private void updateMissionOnMap(KMZInfo kmzInfo) {
+    private void setMissionOnMap(KMZInfo kmzInfo) {
         if (gMap == null || kmzInfo == null) {
-            return; // Exit if the map or the KMZInfo is null
+            return;
         }
 
-        // Clear any existing markers and overlays from the map
         gMap.clear();
 
-        LatLng homeLatLng = new LatLng(home.getLatitude(), home.getLongitude());
+        LatLng homeLatLng = new LatLng(droneHomeLocation.getLatitude(), droneHomeLocation.getLongitude());
         gMap.moveCamera(CameraUpdateFactory.newLatLng(homeLatLng));
 
-        // Add a marker for the home location
         gMap.addMarker(new MarkerOptions()
                 .position(homeLatLng)
                 .title("Home")
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
 
-        // Retrieve the waypoints from the kmzInfo
         List<WaylineExecuteWaypoint> waypoints = kmzInfo.getWaylineWaylinesParseInfo()
                 .getWaylines()
-                .get(0) // Assuming only one wayline
+                .get(0)
                 .getWaypoints();
 
-        // Collect LatLng points for polyline
         List<LatLng> polylinePoints = new ArrayList<>();
-        polylinePoints.add(homeLatLng); // Start with the home location
+        polylinePoints.add(homeLatLng);
 
-        // Add markers for waypoints and collect polyline points
         for (WaylineExecuteWaypoint waypoint : waypoints) {
             double latitude = waypoint.getLocation().getLatitude();
             double longitude = waypoint.getLocation().getLongitude();
             int waypointIndex = waypoint.getWaypointIndex();
 
             LatLng waypointLatLng = new LatLng(latitude, longitude);
-            polylinePoints.add(waypointLatLng); // Add waypoint to polyline points
+            polylinePoints.add(waypointLatLng);
 
-            // Add a marker for the waypoint
             gMap.addMarker(new MarkerOptions()
                     .position(waypointLatLng)
                     .title("Waypoint " + waypointIndex)
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
         }
 
-        // Close the polyline loop by adding the home location again
         polylinePoints.add(homeLatLng);
 
-        // Draw the first segment (home to first waypoint) in magenta
         if (polylinePoints.size() > 1) {
             gMap.addPolyline(new PolylineOptions()
                     .add(polylinePoints.get(0), polylinePoints.get(1))
@@ -396,7 +506,6 @@ public class MainActivity extends AppCompatActivity {
                     .width(5));
         }
 
-        // Draw intermediate segments (waypoints to waypoints) in blue
         for (int i = 1; i < polylinePoints.size() - 2; i++) {
             gMap.addPolyline(new PolylineOptions()
                     .add(polylinePoints.get(i), polylinePoints.get(i + 1))
@@ -404,7 +513,6 @@ public class MainActivity extends AppCompatActivity {
                     .width(5));
         }
 
-        // Draw the last segment (last waypoint to home) in magenta
         if (polylinePoints.size() > 2) {
             gMap.addPolyline(new PolylineOptions()
                     .add(polylinePoints.get(polylinePoints.size() - 2), polylinePoints.get(polylinePoints.size() - 1))
@@ -414,20 +522,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initMapView() {
-        // Add a marker to the map
         gMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
         gMap.moveCamera(CameraUpdateFactory.zoomTo(17));
 
-        updateDroneLocation();
-        cameraUpdate();
+        updateDroneHomeAndCurrentLocation();
+        centerCameraOnDroneCurrentLocation();
     }
 
-    // Update the drone location based on states from MCU.
-    private void updateDroneLocation() {
-        LatLng pos = new LatLng(droneLatitude, droneLongitude);
-        // Create MarkerOptions object
+    private void updateDroneHomeAndCurrentLocation() {
+        LatLng posHome = new LatLng(droneHomeLocation.getLatitude(), droneHomeLocation.getLongitude());
+        gMap.addMarker(new MarkerOptions()
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
+                .position(posHome));
+
+        LatLng posCurrent = new LatLng(droneCurrentLocation.getLatitude(), droneCurrentLocation.getLongitude());
+
         final MarkerOptions markerOptions = new MarkerOptions();
-        markerOptions.position(pos);
+        markerOptions.position(posCurrent);
         markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.aircraft));
 
         runOnUiThread(new Runnable() {
@@ -437,31 +548,25 @@ public class MainActivity extends AppCompatActivity {
                     droneMarker.remove();
                 }
 
-                if (checkGpsCoordination(droneLatitude, droneLongitude)) {
+                if (checkGPSCoordinates(droneCurrentLocation.getLatitude(), droneCurrentLocation.getLongitude())) {
                     droneMarker = gMap.addMarker(markerOptions);
                     if (droneMarker != null) {
                         droneMarker.setRotation((float) droneHeading);
-                        cameraUpdate();
+                        centerCameraOnDroneCurrentLocation();
                     }
                 }
             }
         });
     }
 
-    private void cameraUpdate() {
-        LatLng pos = new LatLng(droneLatitude, droneLongitude);
+    private void centerCameraOnDroneCurrentLocation() {
+        LatLng pos = new LatLng(droneCurrentLocation.getLatitude(), droneCurrentLocation.getLongitude());
         CameraUpdate cu = CameraUpdateFactory.newLatLng(pos);
         gMap.moveCamera(cu);
     }
 
-    public static boolean checkGpsCoordination(double latitude, double longitude) {
+    public static boolean checkGPSCoordinates(double latitude, double longitude) {
         return (latitude > -90 && latitude < 90 && longitude > -180 && longitude < 180) && (latitude != 0f && longitude != 0f);
-    }
-
-    private void setSimulatorStateListener() {
-        SimulatorManager.getInstance().addSimulatorStateListener(state -> {
-            updateDroneLocation();
-        });
     }
 
     private void registerApp() {
@@ -537,41 +642,43 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
+                KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyHomeLocation), this, new CommonCallbacks.KeyListener<LocationCoordinate2D>() {
+                    @Override
+                    public void onValueChange(@Nullable LocationCoordinate2D locationCoordinate2D, @Nullable LocationCoordinate2D t1) {
+                        if (locationCoordinate2D != null) {
+                            droneHomeLocation.setLatitude(locationCoordinate2D.getLatitude());
+                            droneHomeLocation.setLongitude(locationCoordinate2D.getLongitude());
+
+                            updateDroneHomeAndCurrentLocation();
+                            centerCameraOnDroneCurrentLocation(); // maybe too much, let's see...
+                        }
+                    }
+                });
+
                 KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftLocation3D), this, new CommonCallbacks.KeyListener<LocationCoordinate3D>() {
                     @Override
                     public void onValueChange(@Nullable LocationCoordinate3D locationCoordinate3D, @Nullable LocationCoordinate3D t1) {
                         if (locationCoordinate3D != null) {
-                            droneLatitude = locationCoordinate3D.getLatitude();
-                            droneLongitude = locationCoordinate3D.getLongitude();
-                            double droneAltitude = locationCoordinate3D.getAltitude();
+                            // Set as home the very first point registered...
+                            if (droneHomeLocation.getLatitude() == 0.) {
+                                droneHomeLocation.setLatitude(locationCoordinate3D.getLatitude());
+                                droneHomeLocation.setLongitude(locationCoordinate3D.getLongitude());
+                            }
 
-                            // Create a Location object for home
+                            droneCurrentLocation.setLatitude(locationCoordinate3D.getLatitude());
+                            droneCurrentLocation.setLongitude(locationCoordinate3D.getLongitude());
+
                             Location homeLocation = new Location("home");
-                            homeLocation.setLatitude(home.getLatitude());
-                            homeLocation.setLongitude(home.getLongitude());
+                            homeLocation.setLatitude(droneHomeLocation.getLatitude());
+                            homeLocation.setLongitude(droneHomeLocation.getLongitude());
 
-                            Location tempY = new Location("tempY");
-                            tempY.setLatitude(droneLatitude);
-                            tempY.setLongitude(home.getLongitude());
-                            float yDiff = tempY.distanceTo(homeLocation);
+                            Location currentLocation = new Location("current");
+                            currentLocation.setLatitude(droneCurrentLocation.getLatitude());
+                            currentLocation.setLongitude(droneHomeLocation.getLongitude());
 
-                            if (droneLatitude < home.getLatitude()) {
-                                yDiff = -yDiff;
-                            }
+                            distanceFromHome.setText(String.format("%s", decimalFormat.format(currentLocation.distanceTo(homeLocation))));
 
-                            Location tempX = new Location("tempX");
-                            tempX.setLatitude(home.getLatitude());
-                            tempX.setLongitude(droneLongitude);
-                            float xDiff = tempX.distanceTo(homeLocation);
-
-                            if (droneLongitude < home.getLongitude()) {
-                                xDiff = -xDiff;
-                            }
-
-                            positionXYZ.setText(String.format(
-                                    "%.2f, %.2f, %.2f",
-                                    xDiff, yDiff, droneAltitude
-                            ));
+                            updateDroneHomeAndCurrentLocation();
                         }
                     }
                 });

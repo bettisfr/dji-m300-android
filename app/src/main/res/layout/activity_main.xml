@@ -89,6 +89,39 @@
                     android:enabled="false"
                     android:text="Stop" />
             </LinearLayout>
+
+            <!-- Third Row: RTK -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="3"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/textView2"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="RTK"
+                    android:gravity="center_vertical" />
+
+                <Button
+                    android:id="@+id/button_start_rtk"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:enabled="true"
+                    android:text="Start" />
+
+                <Button
+                    android:id="@+id/button_stop_rtk"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:enabled="true"
+                    android:text="Stop" />
+            </LinearLayout>
         </LinearLayout>
 
 
@@ -188,12 +221,12 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Position X, Y, Z"
+                android:text="Distance from home"
                 android:layout_gravity="start"
                 android:padding="1dp" />
 
             <TextView
-                android:id="@+id/textview_position_x_y_z"
+                android:id="@+id/textview_distance_from_home"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="-"
