@@ -201,7 +201,27 @@
             android:text="--"
             android:textColor="#FFFFFF"
             android:layout_gravity="end"
+            android:padding="5dp"
+            android:layout_weight="1" /> <!-- Added layout_weight to keep position fixed -->
+
+        <!-- RTK -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="RTK status:"
+            android:textColor="#FFFFFF"
+            android:layout_gravity="start"
             android:padding="5dp" />
+
+        <TextView
+            android:id="@+id/textview_rtk"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="--"
+            android:textColor="#FFFFFF"
+            android:layout_gravity="end"
+            android:padding="5dp"
+            android:layout_weight="1" /> <!-- Added layout_weight -->
 
     </LinearLayout>
 

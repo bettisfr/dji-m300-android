@@ -44,7 +44,6 @@ import dji.sdk.keyvalue.value.common.Attitude;
 import dji.sdk.keyvalue.value.common.ComponentIndexType;
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D;
 import dji.sdk.keyvalue.value.common.LocationCoordinate3D;
-import dji.sdk.keyvalue.value.common.Velocity3D;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKCustomNetworkSetting;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKReferenceStationSource;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKServiceState;
@@ -73,19 +72,20 @@ import dji.v5.manager.interfaces.SDKManagerCallback;
 public class NewActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private Button toggleButton;
-    private  Button loadMission;
-    private  Button startMission;
+    private  Button btnLoadMission;
+    private  Button btnStartMission;
     private  Button stopMission;
     private SwitchMaterial switchSimulator;
     private SwitchMaterial switchRTK;
-    private TextView isDroneConnected;
-    private TextView battery;
-    private TextView isSimulatorOn;
-    private TextView droneYaw; // Pitch, Roll, Yaw
-    private TextView gimbalPitchYaw; // Pitch, Yaw
+    private TextView tvDroneConnected;
+    private TextView tvBatteryPercentage;
+    private TextView tvSimulator;
+    private TextView tvDroneYaw; // Pitch, Roll, Yaw
+    private TextView tvGimbalPitchYaw; // Pitch, Yaw
 //    private TextView distanceFromHome;
 //    private TextView speed;
-    private TextView log;
+    private TextView tvRtk;
+    private TextView tvLog;
     private GoogleMap gMap;
     private View mapView;
     private Marker droneMarker = null;
@@ -93,8 +93,8 @@ public class NewActivity extends AppCompatActivity {
     private SurfaceView svCameraStream;
 
     // Other stuff
-    LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
-    LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
+    LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(43.062094, 12.549959);
+    LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(43.062094, 12.549959);
     private double droneHeading;
 
     @Override
@@ -120,19 +120,20 @@ public class NewActivity extends AppCompatActivity {
     public void initUI() {
         switchSimulator = findViewById(R.id.switch_simulator);
         switchRTK = findViewById(R.id.switch_rtk);
-        loadMission = findViewById(R.id.button_load_mission);
-        startMission = findViewById(R.id.button_start_mission);
+        btnLoadMission = findViewById(R.id.button_load_mission);
+        btnStartMission = findViewById(R.id.button_start_mission);
 //        stopMission = findViewById(R.id.button_stop_mission);
 
-        isDroneConnected = findViewById(R.id.textview_is_drone_connected);
-        battery = findViewById(R.id.textview_battery);
-        isSimulatorOn = findViewById(R.id.textview_is_simulator_on);
-        droneYaw = findViewById(R.id.textview_drone_yaw);
-        gimbalPitchYaw = findViewById(R.id.textview_gimbal_pitch_yaw);
+        tvDroneConnected = findViewById(R.id.textview_is_drone_connected);
+        tvBatteryPercentage = findViewById(R.id.textview_battery);
+        tvSimulator = findViewById(R.id.textview_is_simulator_on);
+        tvDroneYaw = findViewById(R.id.textview_drone_yaw);
+        tvGimbalPitchYaw = findViewById(R.id.textview_gimbal_pitch_yaw);
 //        distanceFromHome = findViewById(R.id.textview_distance_from_home);
 //        speed = findViewById(R.id.textview_speed);
 
-        log = findViewById(R.id.textview_log);
+        tvLog = findViewById(R.id.textview_log);
+        tvRtk = findViewById(R.id.textview_rtk);
 
         toggleButton = findViewById(R.id.button_toggle_view);
         svCameraStream = findViewById(R.id.sv_camera_stream);
@@ -191,7 +192,7 @@ public class NewActivity extends AppCompatActivity {
             }
         });
 
-        loadMission.setOnClickListener(new View.OnClickListener() {
+        btnLoadMission.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "loadMission");
@@ -199,7 +200,7 @@ public class NewActivity extends AppCompatActivity {
             }
         });
 
-        startMission.setOnClickListener(new View.OnClickListener() {
+        btnStartMission.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "startMission");
@@ -237,7 +238,7 @@ public class NewActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "KMZ mission uploaded successfully.");
 
-                startMission.setEnabled(true);
+                btnStartMission.setEnabled(true);
                 WaypointMissionManager.getInstance().addWaypointActionListener(new WaypointActionListener() {
                     @Override
                     public void onExecutionStart(int actionId) {
@@ -253,14 +254,14 @@ public class NewActivity extends AppCompatActivity {
                     public void onExecutionStart(int actionGroup, int actionId) {
                         Log.i(TAG, "onExecutionStart - actionGroup=" + actionGroup + ", actionId=" + actionId);
 
-                        log.setText("Starting WP=" + actionGroup + " A=" + actionId);
+                        tvLog.setText("Starting WP=" + actionGroup + " A=" + actionId);
                     }
 
                     @Override
                     public void onExecutionFinish(int actionGroup, int actionId, @Nullable IDJIError error) {
                         Log.i(TAG, "onExecutionFinish - actionGroup=" + actionGroup + ", actionId=" + actionId);
 
-                        log.setText("Finishing WP=" + actionGroup + " A=" + actionId);
+                        tvLog.setText("Finishing WP=" + actionGroup + " A=" + actionId);
                     }
                 });
             }
@@ -278,7 +279,7 @@ public class NewActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "startMission - onClick - onSuccess");
 
-                startMission.setEnabled(false);
+                btnStartMission.setEnabled(false);
                 stopMission.setEnabled(true);
             }
 
@@ -350,7 +351,7 @@ public class NewActivity extends AppCompatActivity {
                                                 double stdLongitude = newValue.getRtkLocation().getStdLongitude();
                                                 double stdAltitude = newValue.getRtkLocation().getStdAltitude();
 
-                                                log.setText(String.format(
+                                                tvRtk.setText(String.format(
                                                         "%s, %s, %s",
                                                         decimalFormat.format(stdLatitude),
                                                         decimalFormat.format(stdLongitude),
@@ -413,6 +414,8 @@ public class NewActivity extends AppCompatActivity {
     }
 
     private void startSimulator() {
+        stopRTK();
+
         // Fix home here, maybe it will be better to use something else
         droneHomeLocation = new LocationCoordinate2D(43.062077, 12.550739);
         updateDroneHomeAndCurrentLocation();
@@ -421,7 +424,7 @@ public class NewActivity extends AppCompatActivity {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "enableSimulator - onSuccess");
-                isSimulatorOn.setText("true");
+                tvSimulator.setText("true");
 
                 SimulatorManager.getInstance().addSimulatorStateListener(state -> {
                     updateDroneHomeAndCurrentLocation();
@@ -431,7 +434,7 @@ public class NewActivity extends AppCompatActivity {
             @Override
             public void onFailure(@NonNull IDJIError error) {
                 Log.i(TAG, "enableSimulator - onFailure: " + error);
-                isSimulatorOn.setText("error");
+                tvSimulator.setText("error");
             }
         });
     }
@@ -441,13 +444,13 @@ public class NewActivity extends AppCompatActivity {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "disableSimulator - onSuccess");
-                isSimulatorOn.setText("false");
+                tvSimulator.setText("false");
             }
 
             @Override
             public void onFailure(@NonNull IDJIError error) {
                 Log.i(TAG, "disableSimulator - onFailure: " + error);
-                isSimulatorOn.setText("error");
+                tvSimulator.setText("error");
             }
         });
     }
@@ -616,112 +619,12 @@ public class NewActivity extends AppCompatActivity {
             public void onProductConnect(int productId) {
                 Log.i(TAG, "onProductConnect: " + productId);
 
-                KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyConnection), this, new CommonCallbacks.KeyListener<Boolean>() {
-                    @Override
-                    public void onValueChange(@Nullable Boolean oldValue, @Nullable Boolean newValue) {
-                        if (newValue != null) {
-                            isDroneConnected.setText(newValue.toString());
-                        } else {
-                            isDroneConnected.setText("false");
-                        }
-                    }
-                });
-
-                KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyBatteryPowerPercent), this, new CommonCallbacks.KeyListener<Integer>() {
-                    @Override
-                    public void onValueChange(@Nullable Integer oldValue, @Nullable Integer newValue) {
-                        if (newValue != null) {
-                            battery.setText(newValue.toString());
-                        } else {
-                            battery.setText("-");
-                        }
-                    }
-                });
-
-//                KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftVelocity), this, new CommonCallbacks.KeyListener<Velocity3D>() {
-//                    @Override
-//                    public void onValueChange(@Nullable Velocity3D oldValue, @Nullable Velocity3D newValue) {
-//                        if (newValue != null) {
-//                            if (newValue.getX() != null) {
-//                                speed.setText(String.format(
-//                                        "%s, %s, %s",
-//                                        decimalFormat.format(newValue.getX()),
-//                                        decimalFormat.format(newValue.getY()),
-//                                        decimalFormat.format(newValue.getZ())
-//                                ));
-//                            } else {
-//                                speed.setText("-");
-//                            }
-//                        }
-//                    }
-//                });
-
-                KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftAttitude), this, new CommonCallbacks.KeyListener<Attitude>() {
-                    @Override
-                    public void onValueChange(@Nullable Attitude attitude, @Nullable Attitude t1) {
-                        if (attitude != null) {
-                            droneHeading = attitude.getYaw();
-                            droneYaw.setText(String.format("%s", decimalFormat.format(attitude.getYaw())));
-                        }
-                    }
-                });
-
-                KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyHomeLocation), this, new CommonCallbacks.KeyListener<LocationCoordinate2D>() {
-                    @Override
-                    public void onValueChange(@Nullable LocationCoordinate2D locationCoordinate2D, @Nullable LocationCoordinate2D t1) {
-                        if (locationCoordinate2D != null) {
-                            droneHomeLocation.setLatitude(locationCoordinate2D.getLatitude());
-                            droneHomeLocation.setLongitude(locationCoordinate2D.getLongitude());
-
-                            updateDroneHomeAndCurrentLocation();
-                            centerCameraOnDroneCurrentLocation(); // maybe too much, let's see...
-                        }
-                    }
-                });
-
-                KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftLocation3D), this, new CommonCallbacks.KeyListener<LocationCoordinate3D>() {
-                    @Override
-                    public void onValueChange(@Nullable LocationCoordinate3D locationCoordinate3D, @Nullable LocationCoordinate3D t1) {
-                        if (locationCoordinate3D != null) {
-                            // Set as home the very first point registered...
-                            if (droneHomeLocation.getLatitude() == 0.) {
-                                droneHomeLocation.setLatitude(locationCoordinate3D.getLatitude());
-                                droneHomeLocation.setLongitude(locationCoordinate3D.getLongitude());
-                            }
-
-                            droneCurrentLocation.setLatitude(locationCoordinate3D.getLatitude());
-                            droneCurrentLocation.setLongitude(locationCoordinate3D.getLongitude());
-
-                            Location homeLocation = new Location("home");
-                            homeLocation.setLatitude(droneHomeLocation.getLatitude());
-                            homeLocation.setLongitude(droneHomeLocation.getLongitude());
-
-                            Location currentLocation = new Location("current");
-                            currentLocation.setLatitude(droneCurrentLocation.getLatitude());
-                            currentLocation.setLongitude(droneHomeLocation.getLongitude());
-
-//                            distanceFromHome.setText(String.format("%s", decimalFormat.format(currentLocation.distanceTo(homeLocation))));
-
-                            updateDroneHomeAndCurrentLocation();
-                        }
-                    }
-                });
-
-                KeyManager.getInstance().listen(KeyTools.createKey(GimbalKey.KeyGimbalAttitude), this, new CommonCallbacks.KeyListener<Attitude>() {
-                    @Override
-                    public void onValueChange(@Nullable Attitude attitude, @Nullable Attitude t1) {
-                        // Get gimbal attitude data. The yaw angle uses the north east down coordinate system.
-                        // If you need to get the yaw angle of the gimbal relative to the nose of the aircraft, please call KeyYawRelativeToAircraftHeading.
-                        if (attitude != null) {
-                            gimbalPitchYaw.setText(String.format(
-                                    "%s, %s",
-                                    decimalFormat.format(attitude.getPitch()),
-                                    decimalFormat.format(attitude.getYaw())
-                            ));
-                        }
-                    }
-                });
-
+                listenerDroneConnection();
+                listenerBatteryPercent();
+                listenerAircraftAttitude();
+                listenerHomeLocation();
+                listenerAircraftLocation3D();
+                listenerGimbalAttitude();
             }
 
             @Override
@@ -740,6 +643,100 @@ public class NewActivity extends AppCompatActivity {
             @Override
             public void onDatabaseDownloadProgress(long current, long total) {
                 Log.i(TAG, "onDatabaseDownloadProgress: " + current / total);
+            }
+        });
+    }
+
+    private void listenerGimbalAttitude() {
+        KeyManager.getInstance().listen(KeyTools.createKey(GimbalKey.KeyGimbalAttitude), this, new CommonCallbacks.KeyListener<Attitude>() {
+            @Override
+            public void onValueChange(@Nullable Attitude attitude, @Nullable Attitude t1) {
+                // Get gimbal attitude data. The yaw angle uses the north east down coordinate system.
+                // If you need to get the yaw angle of the gimbal relative to the nose of the aircraft, please call KeyYawRelativeToAircraftHeading.
+                if (attitude != null) {
+                    tvGimbalPitchYaw.setText(String.format(
+                            "%s, %s",
+                            decimalFormat.format(attitude.getPitch()),
+                            decimalFormat.format(attitude.getYaw())
+                    ));
+                }
+            }
+        });
+    }
+
+    private void listenerAircraftLocation3D() {
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftLocation3D), this, new CommonCallbacks.KeyListener<LocationCoordinate3D>() {
+            @Override
+            public void onValueChange(@Nullable LocationCoordinate3D locationCoordinate3D, @Nullable LocationCoordinate3D t1) {
+                if (locationCoordinate3D != null) {
+                    droneCurrentLocation.setLatitude(locationCoordinate3D.getLatitude());
+                    droneCurrentLocation.setLongitude(locationCoordinate3D.getLongitude());
+
+                    Location homeLocation = new Location("home");
+                    homeLocation.setLatitude(droneHomeLocation.getLatitude());
+                    homeLocation.setLongitude(droneHomeLocation.getLongitude());
+
+                    Location currentLocation = new Location("current");
+                    currentLocation.setLatitude(droneCurrentLocation.getLatitude());
+                    currentLocation.setLongitude(droneHomeLocation.getLongitude());
+
+//                            distanceFromHome.setText(String.format("%s", decimalFormat.format(currentLocation.distanceTo(homeLocation))));
+
+                    updateDroneHomeAndCurrentLocation();
+                }
+            }
+        });
+    }
+
+    private void listenerHomeLocation() {
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyHomeLocation), this, new CommonCallbacks.KeyListener<LocationCoordinate2D>() {
+            @Override
+            public void onValueChange(@Nullable LocationCoordinate2D locationCoordinate2D, @Nullable LocationCoordinate2D t1) {
+                if (locationCoordinate2D != null) {
+                    droneHomeLocation.setLatitude(locationCoordinate2D.getLatitude());
+                    droneHomeLocation.setLongitude(locationCoordinate2D.getLongitude());
+
+                    updateDroneHomeAndCurrentLocation();
+                    centerCameraOnDroneCurrentLocation(); // maybe too much, let's see...
+                }
+            }
+        });
+    }
+
+    private void listenerAircraftAttitude() {
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftAttitude), this, new CommonCallbacks.KeyListener<Attitude>() {
+            @Override
+            public void onValueChange(@Nullable Attitude attitude, @Nullable Attitude t1) {
+                if (attitude != null) {
+                    droneHeading = attitude.getYaw();
+                    tvDroneYaw.setText(String.format("%s", decimalFormat.format(attitude.getYaw())));
+                }
+            }
+        });
+    }
+
+    private void listenerBatteryPercent() {
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyBatteryPowerPercent), this, new CommonCallbacks.KeyListener<Integer>() {
+            @Override
+            public void onValueChange(@Nullable Integer oldValue, @Nullable Integer newValue) {
+                if (newValue != null) {
+                    tvBatteryPercentage.setText(newValue.toString() + "%");
+                } else {
+                    tvBatteryPercentage.setText("-");
+                }
+            }
+        });
+    }
+
+    private void listenerDroneConnection() {
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyConnection), this, new CommonCallbacks.KeyListener<Boolean>() {
+            @Override
+            public void onValueChange(@Nullable Boolean oldValue, @Nullable Boolean newValue) {
+                if (newValue != null) {
+                    tvDroneConnected.setText(newValue.toString());
+                } else {
+                    tvDroneConnected.setText("false");
+                }
             }
         });
     }
