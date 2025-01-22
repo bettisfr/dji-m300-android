@@ -348,17 +348,17 @@ public class NewActivity extends AppCompatActivity {
 //                                            }
 //                                        });
 
-                                        RTKCenter.getInstance().getCustomRTKManager().startNetworkRTKService(new CommonCallbacks.CompletionCallback() {
-                                            @Override
-                                            public void onSuccess() {
-                                                Log.i(TAG, "startNetworkRTKService - onSuccess:");
-                                            }
-
-                                            @Override
-                                            public void onFailure(@NonNull IDJIError idjiError) {
-                                                Log.i(TAG, "startNetworkRTKService - onFailure:" + idjiError);
-                                            }
-                                        });
+//                                        RTKCenter.getInstance().getCustomRTKManager().startNetworkRTKService(new CommonCallbacks.CompletionCallback() {
+//                                            @Override
+//                                            public void onSuccess() {
+//                                                Log.i(TAG, "startNetworkRTKService - onSuccess:");
+//                                            }
+//
+//                                            @Override
+//                                            public void onFailure(@NonNull IDJIError idjiError) {
+//                                                Log.i(TAG, "startNetworkRTKService - onFailure:" + idjiError);
+//                                            }
+//                                        });
 
                                         RTKCenter.getInstance().addRTKLocationInfoListener(newValue -> {
                                             double stdLatitude = newValue.getRtkLocation().getStdLatitude();
@@ -427,7 +427,8 @@ public class NewActivity extends AppCompatActivity {
         droneHomeLocation = new LocationCoordinate2D(43.062077, 12.550739);
         updateDroneHomeAndCurrentLocation();
 
-        SimulatorManager.getInstance().enableSimulator(InitializationSettings.createInstance(droneHomeLocation, 15), new CommonCallbacks.CompletionCallback() {
+        InitializationSettings data = InitializationSettings.createInstance(droneHomeLocation, 15);
+        SimulatorManager.getInstance().enableSimulator(data, new CommonCallbacks.CompletionCallback() {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "enableSimulator - onSuccess");
