@@ -19,40 +19,72 @@
         android:visibility="gone" />
 
     <!-- Overlay: Switch Button on the left-middle -->
-    <Button
-        android:id="@+id/button_toggle_view"
+    <!-- Overlay: Left-middle panel -->
+    <LinearLayout
+        android:id="@+id/sliding_panel_left"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Map"
         android:layout_gravity="center_vertical|start"
-        android:layout_marginStart="16dp" />
+        android:orientation="vertical"
+        android:background="@android:color/darker_gray"
+        android:padding="8dp"
+        android:translationX="0dp"> <!-- Start visible -->
 
-    <Button
-        android:id="@+id/button_load_mission"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="LoadM"
-        android:layout_gravity="center_vertical|start"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="40dp" />
+        <!-- Map Button -->
+        <Button
+            android:id="@+id/button_toggle_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Map"
+            android:layout_gravity="center_vertical|start" />
 
+        <!-- Load Mission Button -->
+        <Button
+            android:id="@+id/button_load_mission"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="LoadM"
+            android:layout_gravity="center_vertical|start" />
+
+        <!-- Start Mission Button -->
+        <Button
+            android:id="@+id/button_start_mission"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="StartM"
+            android:layout_gravity="center_vertical|start" />
+
+        <Button
+            android:id="@+id/button_stop_mission"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="StopM"
+            android:layout_gravity="center_vertical|start"             />
+    </LinearLayout>
+
+    <!-- Small sliding button -->
     <Button
-        android:id="@+id/button_start_mission"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="StartM"
+        android:id="@+id/button_toggle_panel_left"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
         android:layout_gravity="center_vertical|start"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="80dp" />
+        android:layout_marginStart="0dp"
+        android:layout_marginTop="-120dp"
+        android:text="«"
+        android:textSize="10sp"
+        android:padding="2dp" />
+
 
     <!-- Overlay: Top-right ON/OFF switches -->
     <LinearLayout
+        android:id="@+id/sliding_panel_right"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical|end"
         android:orientation="vertical"
         android:background="@android:color/darker_gray"
-        android:padding="8dp">
+        android:padding="8dp"
+        android:translationX="0dp"> <!-- Start visible -->
 
         <!-- Simulator ON/OFF switch -->
         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -66,9 +98,20 @@
             android:id="@+id/switch_rtk"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="RTK" /> <!-- Add spacing between switches -->
-
+            android:text="RTK" />
     </LinearLayout>
+
+    <Button
+        android:id="@+id/button_toggle_panel_right"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center_vertical|end"
+        android:layout_marginEnd="0dp"
+        android:layout_marginTop="-120dp"
+        android:text="»"
+        android:textSize="10sp"
+        android:padding="2dp" />
+
 
     <!-- Additional Information Overlay (Top Full Width) -->
     <LinearLayout

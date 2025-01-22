@@ -79,12 +79,11 @@ android {
 dependencies {
 
     implementation libs.dji.sdk.v5.aircraft
+    implementation libs.androidx.slidingpanelayout
     compileOnly libs.dji.sdk.v5.aircraft.provided
     runtimeOnly libs.dji.sdk.v5.networkimp
 
     implementation libs.material
     implementation libs.androidx.appcompat
-
-
     implementation libs.play.services.maps
 }

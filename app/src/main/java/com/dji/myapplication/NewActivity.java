@@ -1,5 +1,6 @@
 package com.dji.myapplication;
 
+import android.animation.ObjectAnimator;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.location.Location;
@@ -72,9 +73,11 @@ import dji.v5.manager.interfaces.SDKManagerCallback;
 public class NewActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private Button toggleButton;
-    private  Button btnLoadMission;
-    private  Button btnStartMission;
-    private  Button stopMission;
+    private Button toggleButtonRight;
+    private Button toggleButtonLeft;
+    private Button btnLoadMission;
+    private Button btnStartMission;
+    private Button stopMission;
     private SwitchMaterial switchSimulator;
     private SwitchMaterial switchRTK;
     private TextView tvDroneConnected;
@@ -88,9 +91,13 @@ public class NewActivity extends AppCompatActivity {
     private TextView tvLog;
     private GoogleMap gMap;
     private View mapView;
+    View slidingRightPanel;
+    View slidingLeftPanel;
     private Marker droneMarker = null;
     DecimalFormat decimalFormat = new DecimalFormat("#.##");
     private SurfaceView svCameraStream;
+    private boolean isRightPanelOpen = true;
+    private boolean isLeftPanelOpen = true;
 
     // Other stuff
     LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(43.062094, 12.549959);
@@ -122,7 +129,7 @@ public class NewActivity extends AppCompatActivity {
         switchRTK = findViewById(R.id.switch_rtk);
         btnLoadMission = findViewById(R.id.button_load_mission);
         btnStartMission = findViewById(R.id.button_start_mission);
-//        stopMission = findViewById(R.id.button_stop_mission);
+        stopMission = findViewById(R.id.button_stop_mission);
 
         tvDroneConnected = findViewById(R.id.textview_is_drone_connected);
         tvBatteryPercentage = findViewById(R.id.textview_battery);
@@ -139,6 +146,46 @@ public class NewActivity extends AppCompatActivity {
         svCameraStream = findViewById(R.id.sv_camera_stream);
         mapView = findViewById(R.id.map_view);
         mapView.setVisibility(View.GONE);
+
+        slidingRightPanel = findViewById(R.id.sliding_panel_right);
+        toggleButtonRight = findViewById(R.id.button_toggle_panel_right);
+
+        slidingLeftPanel = findViewById(R.id.sliding_panel_left);
+        toggleButtonLeft = findViewById(R.id.button_toggle_panel_left);
+
+        toggleButtonLeft.setOnClickListener(v -> {
+            if (isLeftPanelOpen) {
+                ObjectAnimator animator = ObjectAnimator.ofFloat(
+                        slidingLeftPanel, "translationX", 0f, -slidingLeftPanel.getWidth());
+                animator.setDuration(300);
+                animator.start();
+                toggleButtonLeft.setText("»");
+            } else {
+                ObjectAnimator animator = ObjectAnimator.ofFloat(
+                        slidingLeftPanel, "translationX", -slidingLeftPanel.getWidth(), 0f);
+                animator.setDuration(300);
+                animator.start();
+                toggleButtonLeft.setText("«");
+            }
+            isLeftPanelOpen = !isLeftPanelOpen;
+        });
+
+        toggleButtonRight.setOnClickListener(v -> {
+            if (isRightPanelOpen) {
+                ObjectAnimator animator = ObjectAnimator.ofFloat(
+                        slidingRightPanel, "translationX", 0f, slidingRightPanel.getWidth());
+                animator.setDuration(300);
+                animator.start();
+                toggleButtonRight.setText("«");
+            } else {
+                ObjectAnimator animator = ObjectAnimator.ofFloat(
+                        slidingRightPanel, "translationX", slidingRightPanel.getWidth(), 0f);
+                animator.setDuration(300);
+                animator.start();
+                toggleButtonRight.setText("»");
+            }
+            isRightPanelOpen = !isRightPanelOpen;
+        });
 
         toggleButton.setOnClickListener(v -> {
             if (svCameraStream.getVisibility() == View.VISIBLE) {
@@ -208,15 +255,13 @@ public class NewActivity extends AppCompatActivity {
             }
         });
 
-//        stopMission.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                Log.i(TAG, "stopMission - onClick");
-//
-//                startMission.setEnabled(true);
-//                stopMission.setEnabled(false);
-//            }
-//        });
+        stopMission.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.i(TAG, "stopMission - onClick");
+                stopMission(view);
+            }
+        });
     }
 
     private void loadMission(View view) {
@@ -281,6 +326,20 @@ public class NewActivity extends AppCompatActivity {
 
                 btnStartMission.setEnabled(false);
                 stopMission.setEnabled(true);
+            }
+
+            @Override
+            public void onFailure(@NonNull IDJIError idjiError) {
+                Log.i(TAG, "startMission - onClick - onFailure: " + idjiError);
+            }
+        });
+    }
+
+    private void stopMission(View view) {
+        WaypointMissionManager.getInstance().stopMission("mission", new CommonCallbacks.CompletionCallback() {
+            @Override
+            public void onSuccess() {
+                Log.i(TAG, "stopMission - onClick - onSuccess");
             }
 
             @Override
