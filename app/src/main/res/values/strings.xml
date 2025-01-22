@@ -1,3 +1,9 @@
 <resources>
     <string name="your_app_name">UAVMonitor</string>
+    <string name="starting_wp_action">Starting WP=%1$d A=%2$d</string>
+    <string name="finishing_wp_action">Finishing WP=%1$d A=%2$d</string>
+    <string name="battery_percentage_format">%1$d%%</string>
+    <string name="error_output">error</string>
+    <string name="true_output">true</string>
+    <string name="false_output">false</string>
 </resources>

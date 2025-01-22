@@ -10,7 +10,6 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -22,7 +21,6 @@ import com.dji.wpmzsdk.manager.WPMZManager;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
@@ -41,10 +39,8 @@ import dji.sdk.keyvalue.key.FlightControllerKey;
 import dji.sdk.keyvalue.key.GimbalKey;
 import dji.sdk.keyvalue.key.KeyTools;
 import dji.sdk.keyvalue.value.camera.CameraVideoStreamSourceType;
-import dji.sdk.keyvalue.value.common.Attitude;
 import dji.sdk.keyvalue.value.common.ComponentIndexType;
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D;
-import dji.sdk.keyvalue.value.common.LocationCoordinate3D;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKCustomNetworkSetting;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKReferenceStationSource;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKServiceState;
@@ -55,10 +51,6 @@ import dji.v5.common.register.DJISDKInitEvent;
 import dji.v5.manager.KeyManager;
 import dji.v5.manager.SDKManager;
 import dji.v5.manager.aircraft.rtk.RTKCenter;
-import dji.v5.manager.aircraft.rtk.RTKLocationInfo;
-import dji.v5.manager.aircraft.rtk.RTKLocationInfoListener;
-import dji.v5.manager.aircraft.rtk.RTKSystemState;
-import dji.v5.manager.aircraft.rtk.RTKSystemStateListener;
 import dji.v5.manager.aircraft.rtk.network.INetworkServiceInfoListener;
 import dji.v5.manager.aircraft.simulator.InitializationSettings;
 import dji.v5.manager.aircraft.simulator.SimulatorManager;
@@ -72,27 +64,14 @@ import dji.v5.manager.interfaces.SDKManagerCallback;
 
 public class NewActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
-    private Button toggleButton;
-    private Button toggleButtonRight;
-    private Button toggleButtonLeft;
-    private Button btnLoadMission;
-    private Button btnStartMission;
-    private Button stopMission;
-    private SwitchMaterial switchSimulator;
-    private SwitchMaterial switchRTK;
     private TextView tvDroneConnected;
     private TextView tvBatteryPercentage;
     private TextView tvSimulator;
     private TextView tvDroneYaw; // Pitch, Roll, Yaw
     private TextView tvGimbalPitchYaw; // Pitch, Yaw
-//    private TextView distanceFromHome;
-//    private TextView speed;
     private TextView tvRtk;
     private TextView tvLog;
     private GoogleMap gMap;
-    private View mapView;
-    View slidingRightPanel;
-    View slidingLeftPanel;
     private Marker droneMarker = null;
     DecimalFormat decimalFormat = new DecimalFormat("#.##");
     private SurfaceView svCameraStream;
@@ -125,11 +104,11 @@ public class NewActivity extends AppCompatActivity {
     }
 
     public void initUI() {
-        switchSimulator = findViewById(R.id.switch_simulator);
-        switchRTK = findViewById(R.id.switch_rtk);
-        btnLoadMission = findViewById(R.id.button_load_mission);
-        btnStartMission = findViewById(R.id.button_start_mission);
-        stopMission = findViewById(R.id.button_stop_mission);
+        SwitchMaterial switchSimulator = findViewById(R.id.switch_simulator);
+        SwitchMaterial switchRTK = findViewById(R.id.switch_rtk);
+        Button btnLoadMission = findViewById(R.id.button_load_mission);
+        Button btnStartMission = findViewById(R.id.button_start_mission);
+        Button stopMission = findViewById(R.id.button_stop_mission);
 
         tvDroneConnected = findViewById(R.id.textview_is_drone_connected);
         tvBatteryPercentage = findViewById(R.id.textview_battery);
@@ -142,16 +121,16 @@ public class NewActivity extends AppCompatActivity {
         tvLog = findViewById(R.id.textview_log);
         tvRtk = findViewById(R.id.textview_rtk);
 
-        toggleButton = findViewById(R.id.button_toggle_view);
+        Button toggleButton = findViewById(R.id.button_toggle_view);
         svCameraStream = findViewById(R.id.sv_camera_stream);
-        mapView = findViewById(R.id.map_view);
+        View mapView = findViewById(R.id.map_view);
         mapView.setVisibility(View.GONE);
 
-        slidingRightPanel = findViewById(R.id.sliding_panel_right);
-        toggleButtonRight = findViewById(R.id.button_toggle_panel_right);
+        View slidingRightPanel = findViewById(R.id.sliding_panel_right);
+        Button toggleButtonRight = findViewById(R.id.button_toggle_panel_right);
 
-        slidingLeftPanel = findViewById(R.id.sliding_panel_left);
-        toggleButtonLeft = findViewById(R.id.button_toggle_panel_left);
+        View slidingLeftPanel = findViewById(R.id.sliding_panel_left);
+        Button toggleButtonLeft = findViewById(R.id.button_toggle_panel_left);
 
         toggleButtonLeft.setOnClickListener(v -> {
             if (isLeftPanelOpen) {
@@ -202,65 +181,47 @@ public class NewActivity extends AppCompatActivity {
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map_view);
         if (mapFragment != null) {
-            mapFragment.getMapAsync(new OnMapReadyCallback() {
-                @Override
-                public void onMapReady(@NonNull GoogleMap googleMap) {
-                    if (gMap == null) {
-                        gMap = googleMap;
-                        initMapView();
-                    }
+            mapFragment.getMapAsync(googleMap -> {
+                if (gMap == null) {
+                    gMap = googleMap;
+                    initMapView();
                 }
             });
         }
 
-        switchSimulator.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
-                    Log.i(TAG, "startSimulator");
-                    startSimulator();
-                } else {
-                    Log.i(TAG, "startSimulator");
-                    stopSimulator();
-                }
+        switchSimulator.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                Log.i(TAG, "startSimulator");
+                startSimulator();
+            } else {
+                Log.i(TAG, "startSimulator");
+                stopSimulator();
             }
         });
 
-        switchRTK.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
-                    Log.i(TAG, "startRTK");
-                    startRTK();
-                } else {
-                    Log.i(TAG, "stopRTK");
-                    stopRTK();
-                }
+        switchRTK.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                Log.i(TAG, "startRTK");
+                startRTK();
+            } else {
+                Log.i(TAG, "stopRTK");
+                stopRTK();
             }
         });
 
-        btnLoadMission.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.i(TAG, "loadMission");
-                loadMission(view);
-            }
+        btnLoadMission.setOnClickListener(view -> {
+            Log.i(TAG, "loadMission");
+            loadMission(view);
         });
 
-        btnStartMission.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.i(TAG, "startMission");
-                startMission(view);
-            }
+        btnStartMission.setOnClickListener(view -> {
+            Log.i(TAG, "startMission");
+            startMission();
         });
 
-        stopMission.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Log.i(TAG, "stopMission - onClick");
-                stopMission(view);
-            }
+        stopMission.setOnClickListener(view -> {
+            Log.i(TAG, "stopMission - onClick");
+            stopMission();
         });
     }
 
@@ -273,7 +234,7 @@ public class NewActivity extends AppCompatActivity {
 
         setMissionOnMap(kmzInfo);
 
-        WaypointMissionManager.getInstance().pushKMZFileToAircraft(kmzFile.getAbsolutePath(), new CommonCallbacks.CompletionCallbackWithProgress<Double>() {
+        WaypointMissionManager.getInstance().pushKMZFileToAircraft(kmzFile.getAbsolutePath(), new CommonCallbacks.CompletionCallbackWithProgress<>() {
             @Override
             public void onProgressUpdate(Double progress) {
                 Log.d(TAG, "Upload progress: " + progress + "%");
@@ -283,7 +244,6 @@ public class NewActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "KMZ mission uploaded successfully.");
 
-                btnStartMission.setEnabled(true);
                 WaypointMissionManager.getInstance().addWaypointActionListener(new WaypointActionListener() {
                     @Override
                     public void onExecutionStart(int actionId) {
@@ -299,33 +259,31 @@ public class NewActivity extends AppCompatActivity {
                     public void onExecutionStart(int actionGroup, int actionId) {
                         Log.i(TAG, "onExecutionStart - actionGroup=" + actionGroup + ", actionId=" + actionId);
 
-                        tvLog.setText("Starting WP=" + actionGroup + " A=" + actionId);
+                        tvLog.setText(getString(R.string.starting_wp_action, actionGroup, actionId));
                     }
 
                     @Override
                     public void onExecutionFinish(int actionGroup, int actionId, @Nullable IDJIError error) {
                         Log.i(TAG, "onExecutionFinish - actionGroup=" + actionGroup + ", actionId=" + actionId);
 
-                        tvLog.setText("Finishing WP=" + actionGroup + " A=" + actionId);
+                        tvLog.setText(getString(R.string.finishing_wp_action, actionGroup, actionId));
                     }
                 });
             }
 
+
             @Override
             public void onFailure(@NonNull IDJIError idjiError) {
-                Log.e(TAG, "Failed to upload KMZ mission: " + idjiError.toString());
+                Log.e(TAG, "Failed to upload KMZ mission: " + idjiError);
             }
         });
     }
 
-    private void startMission(View view) {
+    private void startMission() {
         WaypointMissionManager.getInstance().startMission("mission", new CommonCallbacks.CompletionCallback() {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "startMission - onClick - onSuccess");
-
-                btnStartMission.setEnabled(false);
-                stopMission.setEnabled(true);
             }
 
             @Override
@@ -335,7 +293,7 @@ public class NewActivity extends AppCompatActivity {
         });
     }
 
-    private void stopMission(View view) {
+    private void stopMission() {
         WaypointMissionManager.getInstance().stopMission("mission", new CommonCallbacks.CompletionCallback() {
             @Override
             public void onSuccess() {
@@ -355,7 +313,7 @@ public class NewActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "setAircraftRTKModuleEnabled - true - onSuccess");
 
-                RTKCenter.getInstance().getAircraftRTKModuleEnabled(new CommonCallbacks.CompletionCallbackWithParam<Boolean>() {
+                RTKCenter.getInstance().getAircraftRTKModuleEnabled(new CommonCallbacks.CompletionCallbackWithParam<>() {
                     @Override
                     public void onSuccess(Boolean aBoolean) {
                         Log.i(TAG, "getAircraftRTKModuleEnabled - onSuccess: " + aBoolean.toString());
@@ -402,32 +360,22 @@ public class NewActivity extends AppCompatActivity {
                                             }
                                         });
 
-                                        RTKCenter.getInstance().addRTKLocationInfoListener(new RTKLocationInfoListener() {
-                                            @Override
-                                            public void onUpdate(RTKLocationInfo newValue) {
-//                                                Log.i(TAG, "addRTKLocationInfoListener - onUpdate: " + newValue.toString());
-                                                double stdLatitude = newValue.getRtkLocation().getStdLatitude();
-                                                double stdLongitude = newValue.getRtkLocation().getStdLongitude();
-                                                double stdAltitude = newValue.getRtkLocation().getStdAltitude();
+                                        RTKCenter.getInstance().addRTKLocationInfoListener(newValue -> {
+                                            double stdLatitude = newValue.getRtkLocation().getStdLatitude();
+                                            double stdLongitude = newValue.getRtkLocation().getStdLongitude();
+                                            double stdAltitude = newValue.getRtkLocation().getStdAltitude();
 
-                                                tvRtk.setText(String.format(
-                                                        "%s, %s, %s",
-                                                        decimalFormat.format(stdLatitude),
-                                                        decimalFormat.format(stdLongitude),
-                                                        decimalFormat.format(stdAltitude)
-                                                ));
-
-//                                                double latitude = newValue.getReal3DLocation().getLatitude();
-//                                                double longitude = newValue.getReal3DLocation().getLongitude();
-                                            }
+                                            tvRtk.setText(String.format(
+                                                    "%s, %s, %s",
+                                                    decimalFormat.format(stdLatitude),
+                                                    decimalFormat.format(stdLongitude),
+                                                    decimalFormat.format(stdAltitude)
+                                            ));
                                         });
 
-                                        RTKCenter.getInstance().addRTKSystemStateListener(new RTKSystemStateListener() {
-                                            @Override
-                                            public void onUpdate(RTKSystemState newValue) {
-                                                Log.i(TAG, "addRTKSystemStateListener - onUpdate: " + newValue.toString());
-                                            }
-                                        });
+                                        RTKCenter.getInstance().addRTKSystemStateListener(newValue ->
+                                                Log.i(TAG, "addRTKSystemStateListener - onUpdate: " + newValue.toString())
+                                        );
                                     }
 
                                     @Override
@@ -483,17 +431,15 @@ public class NewActivity extends AppCompatActivity {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "enableSimulator - onSuccess");
-                tvSimulator.setText("true");
+                tvSimulator.setText(getString(R.string.true_output));
 
-                SimulatorManager.getInstance().addSimulatorStateListener(state -> {
-                    updateDroneHomeAndCurrentLocation();
-                });
+                SimulatorManager.getInstance().addSimulatorStateListener(state -> updateDroneHomeAndCurrentLocation());
             }
 
             @Override
             public void onFailure(@NonNull IDJIError error) {
                 Log.i(TAG, "enableSimulator - onFailure: " + error);
-                tvSimulator.setText("error");
+                tvSimulator.setText(getString(R.string.error_output));
             }
         });
     }
@@ -503,45 +449,42 @@ public class NewActivity extends AppCompatActivity {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "disableSimulator - onSuccess");
-                tvSimulator.setText("false");
+                tvSimulator.setText(getString(R.string.false_output));
             }
 
             @Override
             public void onFailure(@NonNull IDJIError error) {
                 Log.i(TAG, "disableSimulator - onFailure: " + error);
-                tvSimulator.setText("error");
+                tvSimulator.setText(getString(R.string.error_output));
             }
         });
     }
 
     private void initRGBCamera() {
-        CameraStreamManager.getInstance().addAvailableCameraUpdatedListener(new ICameraStreamManager.AvailableCameraUpdatedListener() {
-            @Override
-            public void onAvailableCameraUpdated(@NonNull List<ComponentIndexType> availableCameraList) {
-                Log.i(TAG, "onAvailableCameraUpdated: " + availableCameraList.size());
+        CameraStreamManager.getInstance().addAvailableCameraUpdatedListener(availableCameraList -> {
+            Log.i(TAG, "onAvailableCameraUpdated: " + availableCameraList.size());
 
-                if (!availableCameraList.isEmpty()) {
-                    MediaDataCenter.getInstance().getCameraStreamManager().putCameraStreamSurface(
-                            ComponentIndexType.LEFT_OR_MAIN,
-                            svCameraStream.getHolder().getSurface(),
-                            svCameraStream.getWidth(),
-                            svCameraStream.getHeight(),
-                            ICameraStreamManager.ScaleType.CENTER_CROP
-                    );
+            if (!availableCameraList.isEmpty()) {
+                MediaDataCenter.getInstance().getCameraStreamManager().putCameraStreamSurface(
+                        ComponentIndexType.LEFT_OR_MAIN,
+                        svCameraStream.getHolder().getSurface(),
+                        svCameraStream.getWidth(),
+                        svCameraStream.getHeight(),
+                        ICameraStreamManager.ScaleType.CENTER_CROP
+                );
 
-                    KeyManager.getInstance().setValue(KeyTools.createKey(CameraKey.KeyCameraVideoStreamSource), CameraVideoStreamSourceType.ZOOM_CAMERA, new CommonCallbacks.CompletionCallback() {
-                        @Override
-                        public void onSuccess() {
-                            Log.i(TAG, "onSuccess ZOOM_CAMERA");
-                        }
+                KeyManager.getInstance().setValue(KeyTools.createKey(CameraKey.KeyCameraVideoStreamSource), CameraVideoStreamSourceType.ZOOM_CAMERA, new CommonCallbacks.CompletionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Log.i(TAG, "onSuccess ZOOM_CAMERA");
+                    }
 
-                        @Override
-                        public void onFailure(@NonNull IDJIError idjiError) {
-                            Log.i(TAG, "onFailure ZOOM_CAMERA: " + idjiError);
-                        }
+                    @Override
+                    public void onFailure(@NonNull IDJIError idjiError) {
+                        Log.i(TAG, "onFailure ZOOM_CAMERA: " + idjiError);
+                    }
 
-                    });
-                }
+                });
             }
         });
 
@@ -629,19 +572,16 @@ public class NewActivity extends AppCompatActivity {
         markerOptions.position(posCurrent);
         markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.aircraft));
 
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (droneMarker != null) {
-                    droneMarker.remove();
-                }
+        runOnUiThread(() -> {
+            if (droneMarker != null) {
+                droneMarker.remove();
+            }
 
-                if (checkGPSCoordinates(droneCurrentLocation.getLatitude(), droneCurrentLocation.getLongitude())) {
-                    droneMarker = gMap.addMarker(markerOptions);
-                    if (droneMarker != null) {
-                        droneMarker.setRotation((float) droneHeading);
-                        centerCameraOnDroneCurrentLocation();
-                    }
+            if (checkGPSCoordinates(droneCurrentLocation.getLatitude(), droneCurrentLocation.getLongitude())) {
+                droneMarker = gMap.addMarker(markerOptions);
+                if (droneMarker != null) {
+                    droneMarker.setRotation((float) droneHeading);
+                    centerCameraOnDroneCurrentLocation();
                 }
             }
         });
@@ -707,95 +647,75 @@ public class NewActivity extends AppCompatActivity {
     }
 
     private void listenerGimbalAttitude() {
-        KeyManager.getInstance().listen(KeyTools.createKey(GimbalKey.KeyGimbalAttitude), this, new CommonCallbacks.KeyListener<Attitude>() {
-            @Override
-            public void onValueChange(@Nullable Attitude attitude, @Nullable Attitude t1) {
-                // Get gimbal attitude data. The yaw angle uses the north east down coordinate system.
-                // If you need to get the yaw angle of the gimbal relative to the nose of the aircraft, please call KeyYawRelativeToAircraftHeading.
-                if (attitude != null) {
-                    tvGimbalPitchYaw.setText(String.format(
-                            "%s, %s",
-                            decimalFormat.format(attitude.getPitch()),
-                            decimalFormat.format(attitude.getYaw())
-                    ));
-                }
+        KeyManager.getInstance().listen(KeyTools.createKey(GimbalKey.KeyGimbalAttitude), this, (attitude, t1) -> {
+            // Get gimbal attitude data. The yaw angle uses the north east down coordinate system.
+            // If you need to get the yaw angle of the gimbal relative to the nose of the aircraft, please call KeyYawRelativeToAircraftHeading.
+            if (attitude != null) {
+                tvGimbalPitchYaw.setText(String.format(
+                        "%s, %s",
+                        decimalFormat.format(attitude.getPitch()),
+                        decimalFormat.format(attitude.getYaw())
+                ));
             }
         });
     }
 
     private void listenerAircraftLocation3D() {
-        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftLocation3D), this, new CommonCallbacks.KeyListener<LocationCoordinate3D>() {
-            @Override
-            public void onValueChange(@Nullable LocationCoordinate3D locationCoordinate3D, @Nullable LocationCoordinate3D t1) {
-                if (locationCoordinate3D != null) {
-                    droneCurrentLocation.setLatitude(locationCoordinate3D.getLatitude());
-                    droneCurrentLocation.setLongitude(locationCoordinate3D.getLongitude());
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftLocation3D), this, (locationCoordinate3D, t1) -> {
+            if (locationCoordinate3D != null) {
+                droneCurrentLocation.setLatitude(locationCoordinate3D.getLatitude());
+                droneCurrentLocation.setLongitude(locationCoordinate3D.getLongitude());
 
-                    Location homeLocation = new Location("home");
-                    homeLocation.setLatitude(droneHomeLocation.getLatitude());
-                    homeLocation.setLongitude(droneHomeLocation.getLongitude());
+                Location homeLocation = new Location("home");
+                homeLocation.setLatitude(droneHomeLocation.getLatitude());
+                homeLocation.setLongitude(droneHomeLocation.getLongitude());
 
-                    Location currentLocation = new Location("current");
-                    currentLocation.setLatitude(droneCurrentLocation.getLatitude());
-                    currentLocation.setLongitude(droneHomeLocation.getLongitude());
+                Location currentLocation = new Location("current");
+                currentLocation.setLatitude(droneCurrentLocation.getLatitude());
+                currentLocation.setLongitude(droneHomeLocation.getLongitude());
 
-//                            distanceFromHome.setText(String.format("%s", decimalFormat.format(currentLocation.distanceTo(homeLocation))));
-
-                    updateDroneHomeAndCurrentLocation();
-                }
+                updateDroneHomeAndCurrentLocation();
             }
         });
     }
 
     private void listenerHomeLocation() {
-        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyHomeLocation), this, new CommonCallbacks.KeyListener<LocationCoordinate2D>() {
-            @Override
-            public void onValueChange(@Nullable LocationCoordinate2D locationCoordinate2D, @Nullable LocationCoordinate2D t1) {
-                if (locationCoordinate2D != null) {
-                    droneHomeLocation.setLatitude(locationCoordinate2D.getLatitude());
-                    droneHomeLocation.setLongitude(locationCoordinate2D.getLongitude());
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyHomeLocation), this, (locationCoordinate2D, t1) -> {
+            if (locationCoordinate2D != null) {
+                droneHomeLocation.setLatitude(locationCoordinate2D.getLatitude());
+                droneHomeLocation.setLongitude(locationCoordinate2D.getLongitude());
 
-                    updateDroneHomeAndCurrentLocation();
-                    centerCameraOnDroneCurrentLocation(); // maybe too much, let's see...
-                }
+                updateDroneHomeAndCurrentLocation();
+                centerCameraOnDroneCurrentLocation(); // maybe too much, let's see...
             }
         });
     }
 
     private void listenerAircraftAttitude() {
-        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftAttitude), this, new CommonCallbacks.KeyListener<Attitude>() {
-            @Override
-            public void onValueChange(@Nullable Attitude attitude, @Nullable Attitude t1) {
-                if (attitude != null) {
-                    droneHeading = attitude.getYaw();
-                    tvDroneYaw.setText(String.format("%s", decimalFormat.format(attitude.getYaw())));
-                }
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftAttitude), this, (attitude, t1) -> {
+            if (attitude != null) {
+                droneHeading = attitude.getYaw();
+                tvDroneYaw.setText(String.format("%s", decimalFormat.format(attitude.getYaw())));
             }
         });
     }
 
     private void listenerBatteryPercent() {
-        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyBatteryPowerPercent), this, new CommonCallbacks.KeyListener<Integer>() {
-            @Override
-            public void onValueChange(@Nullable Integer oldValue, @Nullable Integer newValue) {
-                if (newValue != null) {
-                    tvBatteryPercentage.setText(newValue.toString() + "%");
-                } else {
-                    tvBatteryPercentage.setText("-");
-                }
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyBatteryPowerPercent), this, (oldValue, newValue) -> {
+            if (newValue != null) {
+                tvBatteryPercentage.setText(getString(R.string.battery_percentage_format, newValue));
+            } else {
+                tvBatteryPercentage.setText("-");
             }
         });
     }
 
     private void listenerDroneConnection() {
-        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyConnection), this, new CommonCallbacks.KeyListener<Boolean>() {
-            @Override
-            public void onValueChange(@Nullable Boolean oldValue, @Nullable Boolean newValue) {
-                if (newValue != null) {
-                    tvDroneConnected.setText(newValue.toString());
-                } else {
-                    tvDroneConnected.setText("false");
-                }
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyConnection), this, (oldValue, newValue) -> {
+            if (newValue != null) {
+                tvDroneConnected.setText(newValue.toString());
+            } else {
+                tvDroneConnected.setText("false");
             }
         });
     }
