@@ -82,8 +82,9 @@ dependencies {
     compileOnly libs.dji.sdk.v5.aircraft.provided
     runtimeOnly libs.dji.sdk.v5.networkimp
 
-    implementation libs.androidx.appcompat.v161
-    implementation libs.material.v180
+    implementation libs.material
+    implementation libs.androidx.appcompat
+
 
     implementation libs.play.services.maps
 }
