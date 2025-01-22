@@ -170,12 +170,12 @@ public class NewActivity extends AppCompatActivity {
             if (svCameraStream.getVisibility() == View.VISIBLE) {
                 svCameraStream.setVisibility(View.GONE);
                 mapView.setVisibility(View.VISIBLE);
-                toggleButton.setText("Camera");
+                toggleButton.setText(getString(R.string.toggle_left_view_camera));
             } else {
                 svCameraStream.setVisibility(View.VISIBLE);
                 initRGBCamera();
                 mapView.setVisibility(View.GONE);
-                toggleButton.setText("Map");
+                toggleButton.setText(getString(R.string.toggle_left_view_map));
             }
         });
 
@@ -715,7 +715,7 @@ public class NewActivity extends AppCompatActivity {
             if (newValue != null) {
                 tvDroneConnected.setText(newValue.toString());
             } else {
-                tvDroneConnected.setText("false");
+                tvDroneConnected.setText(getString(R.string.false_output));
             }
         });
     }

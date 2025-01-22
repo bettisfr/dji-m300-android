@@ -6,4 +6,6 @@
     <string name="error_output">error</string>
     <string name="true_output">true</string>
     <string name="false_output">false</string>
+    <string name="toggle_left_view_map">Map</string>
+    <string name="toggle_left_view_camera">Camera</string>
 </resources>
