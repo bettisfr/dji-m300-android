@@ -123,8 +123,6 @@ public class MainActivity extends AppCompatActivity {
         tvDroneYaw = findViewById(R.id.textview_drone_yaw);
         tvDroneAltitude = findViewById(R.id.textview_drone_altitude);
         tvGimbalPitchYaw = findViewById(R.id.textview_gimbal_pitch_yaw);
-//        distanceFromHome = findViewById(R.id.textview_distance_from_home);
-//        speed = findViewById(R.id.textview_speed);
 
         tvLog = findViewById(R.id.textview_log);
         tvRtk = findViewById(R.id.textview_rtk);
@@ -146,13 +144,13 @@ public class MainActivity extends AppCompatActivity {
                         slidingLeftPanel, "translationX", 0f, -slidingLeftPanel.getWidth());
                 animator.setDuration(300);
                 animator.start();
-                toggleButtonLeft.setText("»");
+                toggleButtonLeft.setText(getString(R.string.slide_right));
             } else {
                 ObjectAnimator animator = ObjectAnimator.ofFloat(
                         slidingLeftPanel, "translationX", -slidingLeftPanel.getWidth(), 0f);
                 animator.setDuration(300);
                 animator.start();
-                toggleButtonLeft.setText("«");
+                toggleButtonLeft.setText(getString(R.string.slide_left));
             }
             isLeftPanelOpen = !isLeftPanelOpen;
         });
@@ -163,13 +161,13 @@ public class MainActivity extends AppCompatActivity {
                         slidingRightPanel, "translationX", 0f, slidingRightPanel.getWidth());
                 animator.setDuration(300);
                 animator.start();
-                toggleButtonRight.setText("«");
+                toggleButtonRight.setText(getString(R.string.slide_left));
             } else {
                 ObjectAnimator animator = ObjectAnimator.ofFloat(
                         slidingRightPanel, "translationX", slidingRightPanel.getWidth(), 0f);
                 animator.setDuration(300);
                 animator.start();
-                toggleButtonRight.setText("»");
+                toggleButtonRight.setText(getString(R.string.slide_right));
             }
             isRightPanelOpen = !isRightPanelOpen;
         });
@@ -262,7 +260,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "KMZ mission uploaded successfully.");
                 btnStartStopMission.setEnabled(true);
-                btnStartStopMission.setText("Start");
+                btnStartStopMission.setText(getString(R.string.start_mission_button));
 
                 WaypointMissionManager.getInstance().addWaypointActionListener(new WaypointActionListener() {
                     @Override
@@ -305,9 +303,9 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "startMission - onClick - onSuccess");
                 isMissionStarted = true;
-                btnStartStopMission.setText("Stop");
+                btnStartStopMission.setText(getString(R.string.stop_mission_button));
                 btnPauseResumeMission.setEnabled(true);
-                btnPauseResumeMission.setText("Pause");
+                btnPauseResumeMission.setText(getString(R.string.pause_mission_button));
             }
 
             @Override
@@ -323,7 +321,7 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "stopMission - onClick - onSuccess");
                 isMissionStarted = false;
-                btnStartStopMission.setText("Start");
+                btnStartStopMission.setText(getString(R.string.start_mission_button));
                 btnStartStopMission.setEnabled(false);
                 btnPauseResumeMission.setEnabled(false);
 
@@ -358,7 +356,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.i(TAG, "pauseMission - onClick - onSuccess");
                 isMissionPaused = true;
                 btnPauseResumeMission.setEnabled(true);
-                btnPauseResumeMission.setText("Resume");
+                btnPauseResumeMission.setText(getString(R.string.resume_mission_button));
             }
 
             @Override
@@ -375,7 +373,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.i(TAG, "resumeMission - onClick - onSuccess");
                 isMissionPaused = false;
                 btnPauseResumeMission.setEnabled(true);
-                btnPauseResumeMission.setText("Pause");
+                btnPauseResumeMission.setText(getString(R.string.pause_mission_button));
             }
 
             @Override
@@ -783,7 +781,7 @@ public class MainActivity extends AppCompatActivity {
             if (newValue != null) {
                 tvBatteryPercentage.setText(getString(R.string.battery_percentage_format, newValue));
             } else {
-                tvBatteryPercentage.setText("-");
+                tvBatteryPercentage.setText(getString(R.string.empty_label));
             }
         });
     }
