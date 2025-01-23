@@ -10,9 +10,9 @@
         android:layout_height="match_parent"
         android:visibility="visible" />
 
-    <fragment
+    <androidx.fragment.app.FragmentContainerView
         android:id="@+id/map_view"
-        class="com.google.android.gms.maps.SupportMapFragment"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone" />

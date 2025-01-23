@@ -499,8 +499,7 @@ public class MainActivity extends AppCompatActivity {
     private void startSimulator() {
         stopRTK();
 
-        InitializationSettings data = InitializationSettings.createInstance(droneHomeLocation, 15);
-        SimulatorManager.getInstance().enableSimulator(data, new CommonCallbacks.CompletionCallback() {
+        SimulatorManager.getInstance().enableSimulator(InitializationSettings.createInstance(droneHomeLocation, 15), new CommonCallbacks.CompletionCallback() {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "enableSimulator - onSuccess");
