@@ -81,11 +81,12 @@ import dji.v5.manager.interfaces.SDKManagerCallback;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
-    DecimalFormat decimalFormat = new DecimalFormat("#.##");
-    DecimalFormat integerFormat = new DecimalFormat("#");
+    private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
+    private final DecimalFormat integerFormat = new DecimalFormat("#");
     // Other stuff
-    LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(43.062094, 12.549959);
-    LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(43.062094, 12.549959);
+    private LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
+    private LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
+    private String missionFileName = "";
     private Button btnStartStopMission;
     private Button btnPauseResumeMission;
     private TextView tvDroneConnected;
@@ -128,10 +129,36 @@ public class MainActivity extends AppCompatActivity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        setDevelopingArea();
+
         setContentView(R.layout.activity_main);
         initUI();
         initRGBCamera();
         registerApp();
+    }
+
+    private void setDevelopingArea() {
+        /*
+         * 0: casa
+         * 1: bastia
+         */
+        int area = 1;
+
+        if (area == 1) {
+            // 43.02722238036221, 12.58780784942592
+            droneHomeLocation.setLatitude(43.02722238036221);
+            droneHomeLocation.setLongitude(12.58780784942592);
+            droneCurrentLocation.setLatitude(43.02722238036221);
+            droneCurrentLocation.setLongitude(12.58780784942592);
+            missionFileName = "casa.kmz";
+        } else if (area == 2) {
+            // 43.06217612517406, 12.549951779775455
+            droneHomeLocation.setLatitude(43.06217612517406);
+            droneHomeLocation.setLongitude(12.549951779775455);
+            droneCurrentLocation.setLatitude(43.06217612517406);
+            droneCurrentLocation.setLongitude(12.549951779775455);
+            missionFileName = "bastia.kmz";
+        }
     }
 
     public void initUI() {
@@ -279,7 +306,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadMission(View view) {
-        File kmzFile = Util.copyKMZToExternalStorage(view.getContext(), "mission.kmz");
+        File kmzFile = Util.copyKMZToExternalStorage(view.getContext(), missionFileName);
         WaypointMissionManager.getInstance().init();
         currentMissionPath = kmzFile.getAbsolutePath();
         KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath);
@@ -376,7 +403,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
             }
-
 
             @Override
             public void onFailure(@NonNull IDJIError idjiError) {

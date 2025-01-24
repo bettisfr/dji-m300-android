@@ -257,6 +257,23 @@
             android:layout_gravity="end"
             android:padding="2dp"
             android:layout_weight="1" /> <!-- Added layout_weight -->
+
+        <!-- RTK Status -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/rtk_label"
+            android:textColor="#FFFFFF"
+            android:padding="2dp" />
+
+        <TextView
+            android:id="@+id/textview_rtk"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="@string/empty_label"
+            android:textColor="#FFFFFF"
+            android:padding="2dp"
+            android:layout_weight="1" />
     </LinearLayout>
 
 
@@ -281,24 +298,6 @@
         <TextView
             android:id="@+id/textview_log"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/empty_label"
-            android:textColor="#FFFFFF"
-            android:padding="2dp"
-            android:layout_weight="1" />
-
-        <!-- RTK Label -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/rtk_label"
-            android:textColor="#FFFFFF"
-            android:padding="2dp" />
-
-        <!-- RTK Value -->
-        <TextView
-            android:id="@+id/textview_rtk"
-            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:text="@string/empty_label"
             android:textColor="#FFFFFF"

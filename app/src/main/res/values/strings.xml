@@ -1,8 +1,7 @@
 <resources>
     <string name="your_app_name">UAVMonitor</string>
 
-    <string name="starting_wp_action">Doing WP=%1$d A=%2$d: %3$s</string>
-    <string name="finishing_wp_action">Finishing WP=%1$d A=%2$d</string>
+    <string name="starting_wp_action">Doing Waypoint=%1$d Action=%2$d: %3$s</string>
     <string name="battery_percentage_format">%1$d%%</string>
     <string name="error_output">error</string>
     <string name="true_output">true</string>
@@ -19,9 +18,9 @@
     <string name="drone_altitude_label">Alt:</string>
     <string name="drone_speed_label">Speed:</string>
     <string name="drone_yaw_label">Yaw:</string>
-    <string name="gimbal_label">Gimbal:</string>
+    <string name="gimbal_label">Gimb:</string>
     <string name="log_label">Log:</string>
-    <string name="rtk_label">RTK status:</string>
+    <string name="rtk_label">RTK:</string>
 
     <string name="load_mission_button">Load</string>
     <string name="start_mission_button">Start</string>
