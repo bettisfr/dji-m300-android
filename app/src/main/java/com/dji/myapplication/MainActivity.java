@@ -46,6 +46,7 @@ import java.io.File;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import dji.sdk.keyvalue.key.CameraKey;
 import dji.sdk.keyvalue.key.FlightControllerKey;
@@ -55,9 +56,11 @@ import dji.sdk.keyvalue.value.camera.CameraVideoStreamSourceType;
 import dji.sdk.keyvalue.value.common.ComponentIndexType;
 import dji.sdk.keyvalue.value.common.EmptyMsg;
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D;
+import dji.sdk.keyvalue.value.common.Velocity3D;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKCustomNetworkSetting;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKReferenceStationSource;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKServiceState;
+import dji.sdk.wpmz.value.mission.WaylineActionInfo;
 import dji.sdk.wpmz.value.mission.WaylineExecuteWaypoint;
 import dji.v5.common.callback.CommonCallbacks;
 import dji.v5.common.error.IDJIError;
@@ -90,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvSimulator;
     private TextView tvDroneYaw;
     private TextView tvDroneAltitude;
+    private TextView tvDroneSpeed;
     private TextView tvGimbalPitchYaw;
     private TextView tvRtk;
     private TextView tvLog;
@@ -102,6 +106,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isMissionStarted = false;
     private boolean isMissionPaused = false;
     private double droneHeading;
+    private String currentMissionPath;
 
     public static boolean checkGPSCoordinates(double latitude, double longitude) {
         return (latitude > -90 && latitude < 90 && longitude > -180 && longitude < 180) && (latitude != 0f && longitude != 0f);
@@ -141,6 +146,7 @@ public class MainActivity extends AppCompatActivity {
         tvSimulator = findViewById(R.id.textview_is_simulator_on);
         tvDroneYaw = findViewById(R.id.textview_drone_yaw);
         tvDroneAltitude = findViewById(R.id.textview_drone_altitude);
+        tvDroneSpeed = findViewById(R.id.textview_drone_speed);
         tvGimbalPitchYaw = findViewById(R.id.textview_gimbal_pitch_yaw);
 
         tvLog = findViewById(R.id.textview_log);
@@ -258,10 +264,13 @@ public class MainActivity extends AppCompatActivity {
                         .zoom(18)
                         .build());
 
-                gMap.setStyle(TestStyles.AWS_OPEN_DATA_STANDARD_LIGHT, style -> {
+                String key = BuildConfig.MAPTILER_API_KEY;
+                // Find other maps in https://cloud.maptiler.com/maps/
+                String mapId = "satellite";
+                String styleUrl = "https://api.maptiler.com/maps/" + mapId + "/style.json?key=" + key;
+
+                gMap.setStyle(new Style.Builder().fromUri(styleUrl), style -> {
                     mapStyle = style;
-//                    markerViewManager = new MarkerViewManager(mapView, gMap);
-//                    lineManager = new LineManager(mapView, gMap, style);
 
                     updateDroneHomeAndCurrentLocation();
                 });
@@ -272,9 +281,10 @@ public class MainActivity extends AppCompatActivity {
     private void loadMission(View view) {
         File kmzFile = Util.copyKMZToExternalStorage(view.getContext(), "mission.kmz");
         WaypointMissionManager.getInstance().init();
-        KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(kmzFile.getAbsolutePath());
+        currentMissionPath = kmzFile.getAbsolutePath();
+        KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath);
 
-        Log.d("Command Execution :", "Checking file info: " + kmzFile.getAbsolutePath() + ": " + kmzInfo.getWaylineMissionConfigParseInfo().toString());
+        Log.d("Command Execution:", "Checking file info: " + currentMissionPath + ": " + kmzInfo.getWaylineMissionConfigParseInfo().toString());
 
         setMissionOnMap(kmzInfo);
 
@@ -282,11 +292,16 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onProgressUpdate(Double progress) {
                 Log.d(TAG, "Upload progress: " + progress + "%");
+
+                tvLog.setText(String.format(Locale.US, "Upload progress: %.2f%%", progress));
             }
 
             @Override
             public void onSuccess() {
                 Log.i(TAG, "KMZ mission uploaded successfully.");
+
+                tvLog.setText(getString(R.string.kmz_upload_success));
+
                 btnStartStopMission.setEnabled(true);
                 btnStartStopMission.setText(getString(R.string.start_mission_button));
 
@@ -305,14 +320,59 @@ public class MainActivity extends AppCompatActivity {
                     public void onExecutionStart(int actionGroup, int actionId) {
                         Log.i(TAG, "onExecutionStart - actionGroup=" + actionGroup + ", actionId=" + actionId);
 
-                        tvLog.setText(getString(R.string.starting_wp_action, actionGroup, actionId));
+                        WaylineActionInfo actionInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath)
+                                .getWaylineWaylinesParseInfo()
+                                .getWaylines().get(0)
+                                .getActionGroups().get(actionGroup)
+                                .getActions().get(actionId);
+
+                        // Get the action type
+                        String actionType = actionInfo.getActionType().toString();
+
+                        String actionDetails = actionType + ": ";
+
+                        // Evaluate based on action type
+                        switch (actionType) {
+                            case "ROTATE_YAW":
+                                actionDetails += "Heading: " + actionInfo.getAircraftRotateYawParam().getHeading().toString();
+                                break;
+
+                            case "HOVER":
+                                actionDetails += "Time: " + actionInfo.getAircraftHoverParam().getHoverTime().toString();
+                                break;
+
+                            case "GIMBAL_ROTATE":
+                                actionDetails += "Pitch: " + actionInfo.getGimbalRotateParam().getPitch().toString()
+                                        + ", Yaw: " + actionInfo.getGimbalRotateParam().getYaw().toString();
+                                break;
+
+                            case "FOCUS":
+                                actionDetails += "X: " + actionInfo.getFocusParam().getFocus_x().toString()
+                                        + ", Y: " + actionInfo.getFocusParam().getFocus_y().toString();
+                                break;
+
+                            case "ZOOM":
+                                actionDetails += "Focal Length: " + actionInfo.getZoomParam().getFocalLength().toString();
+                                break;
+
+                            case "TAKE_PHOTO":
+                                actionDetails += "Suffix: " + actionInfo.getTakePhotoParam().getFileSuffix();
+                                break;
+
+                            default:
+                                actionDetails = "UNKNOWN ACTION";
+                                break;
+                        }
+
+                        // Update the log with the action type and details
+                        tvLog.setText(getString(R.string.starting_wp_action, actionGroup, actionId, actionDetails));
                     }
 
                     @Override
                     public void onExecutionFinish(int actionGroup, int actionId, @Nullable IDJIError error) {
                         Log.i(TAG, "onExecutionFinish - actionGroup=" + actionGroup + ", actionId=" + actionId);
 
-                        tvLog.setText(getString(R.string.finishing_wp_action, actionGroup, actionId));
+//                        tvLog.setText(getString(R.string.finishing_wp_action, actionGroup, actionId));
                     }
                 });
             }
@@ -814,6 +874,7 @@ public class MainActivity extends AppCompatActivity {
                 listenerHomeLocation();
                 listenerAircraftLocation3D();
                 listenerGimbalAttitude();
+                listenerAircraftVelocity();
             }
 
             @Override
@@ -832,6 +893,20 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onDatabaseDownloadProgress(long current, long total) {
                 Log.i(TAG, "onDatabaseDownloadProgress: " + current / total);
+            }
+        });
+    }
+
+    private void listenerAircraftVelocity() {
+        KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftVelocity), this, (velocity3D, t1) -> {
+            if (velocity3D != null) {
+                double speedX = velocity3D.getX();
+                double speedY = velocity3D.getY();
+                double speedZ = -velocity3D.getZ();  // Keep negative to have takeoff +, landing -
+
+                double speedXY = Math.sqrt(speedX * speedX + speedY * speedY);
+
+                tvDroneSpeed.setText(String.format(Locale.US, "%.1f, %.1f", speedXY, speedZ));
             }
         });
     }

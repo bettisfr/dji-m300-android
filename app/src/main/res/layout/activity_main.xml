@@ -132,7 +132,7 @@
             android:text="@string/connection_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="start"
-            android:padding="5dp" />
+            android:padding="2dp" />
 
         <TextView
             android:id="@+id/textview_is_drone_connected"
@@ -141,7 +141,7 @@
             android:text="@string/empty_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="end"
-            android:padding="5dp"
+            android:padding="2dp"
             android:layout_weight="1" /> <!-- Added layout_weight to keep position fixed -->
 
         <!-- Simulator Status -->
@@ -151,7 +151,7 @@
             android:text="@string/simulator_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="start"
-            android:padding="5dp" />
+            android:padding="2dp" />
 
         <TextView
             android:id="@+id/textview_is_simulator_on"
@@ -160,7 +160,7 @@
             android:text="@string/empty_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="end"
-            android:padding="5dp"
+            android:padding="2dp"
             android:layout_weight="1" /> <!-- Added layout_weight -->
 
         <!-- Battery Status -->
@@ -170,7 +170,7 @@
             android:text="@string/battery_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="start"
-            android:padding="5dp" />
+            android:padding="2dp" />
 
         <TextView
             android:id="@+id/textview_battery"
@@ -179,7 +179,7 @@
             android:text="@string/empty_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="end"
-            android:padding="5dp"
+            android:padding="2dp"
             android:layout_weight="1" /> <!-- Added layout_weight -->
 
         <!-- Drone Yaw -->
@@ -189,7 +189,7 @@
             android:text="@string/drone_yaw_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="start"
-            android:padding="5dp" />
+            android:padding="2dp" />
 
         <TextView
             android:id="@+id/textview_drone_yaw"
@@ -198,7 +198,7 @@
             android:text="@string/empty_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="end"
-            android:padding="5dp"
+            android:padding="2dp"
             android:layout_weight="1" /> <!-- Added layout_weight -->
 
         <!-- Drone Altitude -->
@@ -208,7 +208,7 @@
             android:text="@string/drone_altitude_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="start"
-            android:padding="5dp" />
+            android:padding="2dp" />
 
         <TextView
             android:id="@+id/textview_drone_altitude"
@@ -217,7 +217,26 @@
             android:text="@string/empty_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="end"
-            android:padding="5dp"
+            android:padding="2dp"
+            android:layout_weight="1" /> <!-- Added layout_weight -->
+
+        <!-- Drone Speed -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/drone_speed_label"
+            android:textColor="#FFFFFF"
+            android:layout_gravity="start"
+            android:padding="2dp" />
+
+        <TextView
+            android:id="@+id/textview_drone_speed"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="@string/empty_label"
+            android:textColor="#FFFFFF"
+            android:layout_gravity="end"
+            android:padding="2dp"
             android:layout_weight="1" /> <!-- Added layout_weight -->
 
         <!-- Gimbal Pitch/Yaw -->
@@ -227,7 +246,7 @@
             android:text="@string/gimbal_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="start"
-            android:padding="5dp" />
+            android:padding="2dp" />
 
         <TextView
             android:id="@+id/textview_gimbal_pitch_yaw"
@@ -236,7 +255,7 @@
             android:text="@string/empty_label"
             android:textColor="#FFFFFF"
             android:layout_gravity="end"
-            android:padding="5dp"
+            android:padding="2dp"
             android:layout_weight="1" /> <!-- Added layout_weight -->
     </LinearLayout>
 
@@ -256,7 +275,7 @@
             android:layout_height="wrap_content"
             android:text="@string/log_label"
             android:textColor="#FFFFFF"
-            android:padding="5dp" />
+            android:padding="2dp" />
 
         <!-- Log Value -->
         <TextView
@@ -265,7 +284,7 @@
             android:layout_height="wrap_content"
             android:text="@string/empty_label"
             android:textColor="#FFFFFF"
-            android:padding="5dp"
+            android:padding="2dp"
             android:layout_weight="1" />
 
         <!-- RTK Label -->
@@ -274,7 +293,7 @@
             android:layout_height="wrap_content"
             android:text="@string/rtk_label"
             android:textColor="#FFFFFF"
-            android:padding="5dp" />
+            android:padding="2dp" />
 
         <!-- RTK Value -->
         <TextView
@@ -283,7 +302,7 @@
             android:layout_height="wrap_content"
             android:text="@string/empty_label"
             android:textColor="#FFFFFF"
-            android:padding="5dp"
+            android:padding="2dp"
             android:layout_weight="1" />
     </LinearLayout>
 
