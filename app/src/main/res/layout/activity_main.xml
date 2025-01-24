@@ -10,9 +10,8 @@
         android:layout_height="match_parent"
         android:visibility="visible" />
 
-    <androidx.fragment.app.FragmentContainerView
+    <org.maplibre.android.maps.MapView
         android:id="@+id/map_view"
-        android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone" />
@@ -256,7 +255,6 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/log_label"
-            android:layout_marginStart="30dp"
             android:textColor="#FFFFFF"
             android:padding="5dp" />
 

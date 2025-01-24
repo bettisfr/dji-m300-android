@@ -1,8 +1,16 @@
 package com.dji.myapplication;
 
+import static org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap;
+import static org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement;
+import static org.maplibre.android.style.layers.PropertyFactory.iconImage;
+import static org.maplibre.android.style.layers.PropertyFactory.iconRotate;
+import static org.maplibre.android.style.layers.PropertyFactory.lineColor;
+import static org.maplibre.android.style.layers.PropertyFactory.lineWidth;
+
 import android.animation.ObjectAnimator;
 import android.content.pm.ActivityInfo;
-import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
@@ -18,16 +26,21 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.dji.wpmzsdk.common.data.KMZInfo;
 import com.dji.wpmzsdk.manager.WPMZManager;
-import com.google.android.gms.maps.CameraUpdate;
-import com.google.android.gms.maps.CameraUpdateFactory;
-import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.material.switchmaterial.SwitchMaterial;
+
+import org.maplibre.android.MapLibre;
+import org.maplibre.android.camera.CameraPosition;
+import org.maplibre.android.geometry.LatLng;
+import org.maplibre.android.maps.MapLibreMap;
+import org.maplibre.android.maps.MapView;
+import org.maplibre.android.maps.Style;
+import org.maplibre.android.style.layers.LineLayer;
+import org.maplibre.android.style.layers.SymbolLayer;
+import org.maplibre.android.style.sources.GeoJsonSource;
+import org.maplibre.geojson.Feature;
+import org.maplibre.geojson.FeatureCollection;
+import org.maplibre.geojson.LineString;
+import org.maplibre.geojson.Point;
 
 import java.io.File;
 import java.text.DecimalFormat;
@@ -65,6 +78,11 @@ import dji.v5.manager.interfaces.SDKManagerCallback;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
+    DecimalFormat decimalFormat = new DecimalFormat("#.##");
+    DecimalFormat integerFormat = new DecimalFormat("#");
+    // Other stuff
+    LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(43.062094, 12.549959);
+    LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(43.062094, 12.549959);
     private Button btnStartStopMission;
     private Button btnPauseResumeMission;
     private TextView tvDroneConnected;
@@ -75,24 +93,25 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvGimbalPitchYaw;
     private TextView tvRtk;
     private TextView tvLog;
-    private GoogleMap gMap;
-    private Marker droneMarker = null;
-    DecimalFormat decimalFormat = new DecimalFormat("#.##");
-    DecimalFormat integerFormat = new DecimalFormat("#");
+    private MapView mapView;
+    private MapLibreMap gMap;
+    private Style mapStyle;
     private SurfaceView svCameraStream;
     private boolean isRightPanelOpen = true;
     private boolean isLeftPanelOpen = true;
     private boolean isMissionStarted = false;
     private boolean isMissionPaused = false;
-
-    // Other stuff
-    LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(43.062094, 12.549959);
-    LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(43.062094, 12.549959);
     private double droneHeading;
+
+    public static boolean checkGPSCoordinates(double latitude, double longitude) {
+        return (latitude > -90 && latitude < 90 && longitude > -180 && longitude < 180) && (latitude != 0f && longitude != 0f);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        MapLibre.getInstance(this);
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
@@ -129,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
 
         Button toggleButton = findViewById(R.id.button_toggle_view);
         svCameraStream = findViewById(R.id.sv_camera_stream);
-        View mapView = findViewById(R.id.map_view);
+        mapView = findViewById(R.id.map_view);
         mapView.setVisibility(View.GONE);
 
         View slidingRightPanel = findViewById(R.id.sliding_panel_right);
@@ -185,16 +204,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map_view);
-        if (mapFragment != null) {
-            mapFragment.getMapAsync(googleMap -> {
-                if (gMap == null) {
-                    gMap = googleMap;
-                    initMapView();
-                }
-            });
-        }
-
         switchSimulator.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
                 Log.i(TAG, "startSimulator");
@@ -237,6 +246,25 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Log.i(TAG, "pauseMission - onClick");
                 pauseMission();
+            }
+        });
+
+        mapView.getMapAsync(map -> {
+            if (gMap == null) {
+                gMap = map;
+
+                gMap.setCameraPosition(new CameraPosition.Builder()
+                        .target(new LatLng(droneHomeLocation.getLatitude(), droneHomeLocation.getLongitude()))
+                        .zoom(18)
+                        .build());
+
+                gMap.setStyle(TestStyles.AWS_OPEN_DATA_STANDARD_LIGHT, style -> {
+                    mapStyle = style;
+//                    markerViewManager = new MarkerViewManager(mapView, gMap);
+//                    lineManager = new LineManager(mapView, gMap, style);
+
+                    updateDroneHomeAndCurrentLocation();
+                });
             }
         });
     }
@@ -499,7 +527,7 @@ public class MainActivity extends AppCompatActivity {
     private void startSimulator() {
         stopRTK();
 
-        SimulatorManager.getInstance().enableSimulator(InitializationSettings.createInstance(droneHomeLocation, 15), new CommonCallbacks.CompletionCallback() {
+        SimulatorManager.getInstance().enableSimulator(InitializationSettings.createInstance(droneHomeLocation, 20), new CommonCallbacks.CompletionCallback() {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "enableSimulator - onSuccess");
@@ -565,109 +593,198 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setMissionOnMap(KMZInfo kmzInfo) {
-        if (gMap == null || kmzInfo == null) {
+        if (mapStyle == null || kmzInfo == null) {
             return;
         }
 
-        gMap.clear();
+        // Remove existing layers and sources to avoid duplication
+        if (mapStyle.getLayer("home-marker-layer") != null) {
+            mapStyle.removeLayer("home-marker-layer");
+        }
+        if (mapStyle.getLayer("waypoint-marker-layer") != null) {
+            mapStyle.removeLayer("waypoint-marker-layer");
+        }
+        if (mapStyle.getLayer("home-to-firstwaypoint-layer") != null) {
+            mapStyle.removeLayer("home-to-firstwaypoint-layer");
+        }
+        if (mapStyle.getLayer("lastwaypoint-to-home-layer") != null) {
+            mapStyle.removeLayer("lastwaypoint-to-home-layer");
+        }
+        if (mapStyle.getLayer("waypoint-to-waypoint-layer") != null) {
+            mapStyle.removeLayer("waypoint-to-waypoint-layer");
+        }
+        if (mapStyle.getSource("home-marker-source") != null) {
+            mapStyle.removeSource("home-marker-source");
+        }
+        if (mapStyle.getSource("waypoint-marker-source") != null) {
+            mapStyle.removeSource("waypoint-marker-source");
+        }
+        if (mapStyle.getSource("home-to-firstwaypoint-source") != null) {
+            mapStyle.removeSource("home-to-firstwaypoint-source");
+        }
+        if (mapStyle.getSource("lastwaypoint-to-home-source") != null) {
+            mapStyle.removeSource("lastwaypoint-to-home-source");
+        }
+        if (mapStyle.getSource("waypoint-to-waypoint-source") != null) {
+            mapStyle.removeSource("waypoint-to-waypoint-source");
+        }
 
-        LatLng homeLatLng = new LatLng(droneHomeLocation.getLatitude(), droneHomeLocation.getLongitude());
-        gMap.moveCamera(CameraUpdateFactory.newLatLng(homeLatLng));
+        // Add magenta line from home to the first waypoint
+        List<Point> homeToFirstWaypointPoints = new ArrayList<>();
+        homeToFirstWaypointPoints.add(Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude()));
+        WaylineExecuteWaypoint firstWaypoint = kmzInfo.getWaylineWaylinesParseInfo()
+                .getWaylines()
+                .get(0)
+                .getWaypoints()
+                .get(0);  // Get the first waypoint
+        homeToFirstWaypointPoints.add(Point.fromLngLat(firstWaypoint.getLocation().getLongitude(), firstWaypoint.getLocation().getLatitude()));
 
-        gMap.addMarker(new MarkerOptions()
-                .position(homeLatLng)
-                .title("Home")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+        GeoJsonSource homeToFirstWaypointSource = new GeoJsonSource("home-to-firstwaypoint-source", LineString.fromLngLats(homeToFirstWaypointPoints));
+        mapStyle.addSource(homeToFirstWaypointSource);
 
+        LineLayer homeToFirstWaypointLayer = new LineLayer("home-to-firstwaypoint-layer", "home-to-firstwaypoint-source");
+        homeToFirstWaypointLayer.setProperties(
+                lineColor("magenta"),  // Set the line color to magenta
+                lineWidth(4.0f)        // Set the line width
+        );
+        mapStyle.addLayer(homeToFirstWaypointLayer); // Add line layer from home to first waypoint
+
+        // Add magenta line from last waypoint to home
+        List<Point> lastWaypointToHomePoints = new ArrayList<>();
         List<WaylineExecuteWaypoint> waypoints = kmzInfo.getWaylineWaylinesParseInfo()
                 .getWaylines()
                 .get(0)
                 .getWaypoints();
+        WaylineExecuteWaypoint lastWaypoint = waypoints.get(waypoints.size() - 1);  // Get the last waypoint
+        lastWaypointToHomePoints.add(Point.fromLngLat(lastWaypoint.getLocation().getLongitude(), lastWaypoint.getLocation().getLatitude()));
+        lastWaypointToHomePoints.add(Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude()));
 
-        List<LatLng> polylinePoints = new ArrayList<>();
-        polylinePoints.add(homeLatLng);
+        GeoJsonSource lastWaypointToHomeSource = new GeoJsonSource("lastwaypoint-to-home-source", LineString.fromLngLats(lastWaypointToHomePoints));
+        mapStyle.addSource(lastWaypointToHomeSource);
+
+        LineLayer lastWaypointToHomeLayer = new LineLayer("lastwaypoint-to-home-layer", "lastwaypoint-to-home-source");
+        lastWaypointToHomeLayer.setProperties(
+                lineColor("magenta"),  // Set the line color to magenta
+                lineWidth(4.0f)        // Set the line width
+        );
+        mapStyle.addLayer(lastWaypointToHomeLayer); // Add line layer from last waypoint to home
+
+        // Add blue lines connecting the waypoints (except home to first and last to home)
+        List<Point> waypointToWaypointPoints = new ArrayList<>();
+        for (int i = 0; i < waypoints.size() - 1; i++) {
+            WaylineExecuteWaypoint currentWaypoint = waypoints.get(i);
+            WaylineExecuteWaypoint nextWaypoint = waypoints.get(i + 1);
+
+            waypointToWaypointPoints.add(Point.fromLngLat(currentWaypoint.getLocation().getLongitude(), currentWaypoint.getLocation().getLatitude()));
+            waypointToWaypointPoints.add(Point.fromLngLat(nextWaypoint.getLocation().getLongitude(), nextWaypoint.getLocation().getLatitude()));
+        }
+
+        // Create GeoJsonSource for the waypoint-to-waypoint connections
+        GeoJsonSource waypointToWaypointSource = new GeoJsonSource("waypoint-to-waypoint-source", LineString.fromLngLats(waypointToWaypointPoints));
+        mapStyle.addSource(waypointToWaypointSource);
+
+        // Create LineLayer for waypoint-to-waypoint connections (blue)
+        LineLayer waypointToWaypointLayer = new LineLayer("waypoint-to-waypoint-layer", "waypoint-to-waypoint-source");
+        waypointToWaypointLayer.setProperties(
+                lineColor("blue"),  // Set the line color to blue
+                lineWidth(4.0f)     // Set the line width
+        );
+
+        // Add line layer for waypoint-to-waypoint connections
+        mapStyle.addLayer(waypointToWaypointLayer);
+
+        // Add home location marker (green) at the end
+        mapStyle.addImage("home-marker-icon", BitmapFactory.decodeResource(getResources(), R.drawable.marker_green));
+        GeoJsonSource homeMarkerSource = new GeoJsonSource("home-marker-source");
+        List<Feature> homeFeatures = new ArrayList<>();
+        homeFeatures.add(Feature.fromGeometry(Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude())));
+        homeMarkerSource.setGeoJson(FeatureCollection.fromFeatures(homeFeatures));
+        mapStyle.addSource(homeMarkerSource);
+
+        SymbolLayer homeMarkerLayer = new SymbolLayer("home-marker-layer", "home-marker-source");
+        homeMarkerLayer.setProperties(
+                iconImage("home-marker-icon"), // Green home marker icon
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true)
+        );
+        mapStyle.addLayer(homeMarkerLayer); // Add home marker layer
+
+        // Add waypoint markers (red) at the end
+        mapStyle.addImage("waypoint-marker-icon", BitmapFactory.decodeResource(getResources(), R.drawable.marker_red));
+        GeoJsonSource waypointMarkerSource = new GeoJsonSource("waypoint-marker-source");
+        List<Feature> waypointFeatures = new ArrayList<>();
 
         for (WaylineExecuteWaypoint waypoint : waypoints) {
             double latitude = waypoint.getLocation().getLatitude();
             double longitude = waypoint.getLocation().getLongitude();
-            int waypointIndex = waypoint.getWaypointIndex();
-
-            LatLng waypointLatLng = new LatLng(latitude, longitude);
-            polylinePoints.add(waypointLatLng);
-
-            gMap.addMarker(new MarkerOptions()
-                    .position(waypointLatLng)
-                    .title("Waypoint " + waypointIndex)
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+            waypointFeatures.add(Feature.fromGeometry(Point.fromLngLat(longitude, latitude)));
         }
 
-        polylinePoints.add(homeLatLng);
+        waypointMarkerSource.setGeoJson(FeatureCollection.fromFeatures(waypointFeatures));
+        mapStyle.addSource(waypointMarkerSource);
 
-        if (polylinePoints.size() > 1) {
-            gMap.addPolyline(new PolylineOptions()
-                    .add(polylinePoints.get(0), polylinePoints.get(1))
-                    .color(Color.MAGENTA)
-                    .width(5));
-        }
+        SymbolLayer waypointMarkerLayer = new SymbolLayer("waypoint-marker-layer", "waypoint-marker-source");
+        waypointMarkerLayer.setProperties(
+                iconImage("waypoint-marker-icon"), // Red waypoint marker icon
+                iconAllowOverlap(true),
+                iconIgnorePlacement(true)
+        );
 
-        for (int i = 1; i < polylinePoints.size() - 2; i++) {
-            gMap.addPolyline(new PolylineOptions()
-                    .add(polylinePoints.get(i), polylinePoints.get(i + 1))
-                    .color(Color.BLUE)
-                    .width(5));
-        }
-
-        if (polylinePoints.size() > 2) {
-            gMap.addPolyline(new PolylineOptions()
-                    .add(polylinePoints.get(polylinePoints.size() - 2), polylinePoints.get(polylinePoints.size() - 1))
-                    .color(Color.MAGENTA)
-                    .width(5));
-        }
-    }
-
-    private void initMapView() {
-        gMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
-        gMap.moveCamera(CameraUpdateFactory.zoomTo(17));
-
-        updateDroneHomeAndCurrentLocation();
-        centerCameraOnDroneCurrentLocation();
+        mapStyle.addLayer(waypointMarkerLayer); // Add waypoint markers layer
     }
 
     private void updateDroneHomeAndCurrentLocation() {
-        LatLng posHome = new LatLng(droneHomeLocation.getLatitude(), droneHomeLocation.getLongitude());
-        gMap.addMarker(new MarkerOptions()
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
-                .position(posHome));
-
-        LatLng posCurrent = new LatLng(droneCurrentLocation.getLatitude(), droneCurrentLocation.getLongitude());
-
-        final MarkerOptions markerOptions = new MarkerOptions();
-        markerOptions.position(posCurrent);
-        markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.aircraft));
-
-        runOnUiThread(() -> {
-            if (droneMarker != null) {
-                droneMarker.remove();
+        if (mapStyle != null) {
+            // Update home location marker (no rotation)
+            Bitmap homeIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.marker_red);
+            if (mapStyle.getSource("home-location-source") != null) {
+                GeoJsonSource source = mapStyle.getSourceAs("home-location-source");
+                if (source != null) {
+                    source.setGeoJson(Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude()));
+                }
+            } else {
+                GeoJsonSource source = new GeoJsonSource("home-location-source", Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude()));
+                mapStyle.addSource(source);
+                SymbolLayer layer = new SymbolLayer("home-marker-layer", "home-location-source");
+                layer.setProperties(
+                        iconImage("marker-home-icon"),
+                        iconAllowOverlap(true),
+                        iconIgnorePlacement(true)
+                );
+                mapStyle.addLayer(layer);
+                mapStyle.addImage("marker-home-icon", homeIconBitmap);
             }
 
+            // Update current location marker (only if valid GPS coordinates) with rotation for the drone
             if (checkGPSCoordinates(droneCurrentLocation.getLatitude(), droneCurrentLocation.getLongitude())) {
-                droneMarker = gMap.addMarker(markerOptions);
-                if (droneMarker != null) {
-                    droneMarker.setRotation((float) droneHeading);
-//                    centerCameraOnDroneCurrentLocation();
+                Bitmap currentIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.aircraft);
+                if (mapStyle.getSource("current-location-source") != null) {
+                    GeoJsonSource source = mapStyle.getSourceAs("current-location-source");
+                    if (source != null) {
+                        source.setGeoJson(Point.fromLngLat(droneCurrentLocation.getLongitude(), droneCurrentLocation.getLatitude()));
+                    }
+                } else {
+                    GeoJsonSource source = new GeoJsonSource("current-location-source", Point.fromLngLat(droneCurrentLocation.getLongitude(), droneCurrentLocation.getLatitude()));
+                    mapStyle.addSource(source);
+                    SymbolLayer layer = new SymbolLayer("current-marker-layer", "current-location-source");
+                    layer.setProperties(
+                            iconImage("marker-current-icon"),
+                            iconAllowOverlap(true),
+                            iconIgnorePlacement(true)
+                    );
+                    mapStyle.addLayer(layer);
+                    mapStyle.addImage("marker-current-icon", currentIconBitmap);
+                }
+
+                // Update the layer with the icon's rotation based on droneHeading
+                SymbolLayer layer = (SymbolLayer) mapStyle.getLayer("current-marker-layer");
+                if (layer != null) {
+                    layer.setProperties(
+                            iconRotate((float) droneHeading)  // Rotate the icon based on droneHeading
+                    );
                 }
             }
-        });
-    }
-
-    private void centerCameraOnDroneCurrentLocation() {
-        LatLng pos = new LatLng(droneCurrentLocation.getLatitude(), droneCurrentLocation.getLongitude());
-        CameraUpdate cu = CameraUpdateFactory.newLatLng(pos);
-        gMap.moveCamera(cu);
-    }
-
-    public static boolean checkGPSCoordinates(double latitude, double longitude) {
-        return (latitude > -90 && latitude < 90 && longitude > -180 && longitude < 180) && (latitude != 0f && longitude != 0f);
+        }
     }
 
     private void registerApp() {

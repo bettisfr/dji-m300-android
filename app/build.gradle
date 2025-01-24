@@ -85,5 +85,6 @@ dependencies {
 
     implementation libs.material
     implementation libs.androidx.appcompat
-    implementation libs.play.services.maps
+
+    implementation libs.android.sdk
 }
