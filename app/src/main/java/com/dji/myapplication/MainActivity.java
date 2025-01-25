@@ -57,6 +57,7 @@ import dji.sdk.keyvalue.value.common.ComponentIndexType;
 import dji.sdk.keyvalue.value.common.EmptyMsg;
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D;
 import dji.sdk.keyvalue.value.common.Velocity3D;
+import dji.sdk.keyvalue.value.flightcontroller.GPSSignalLevel;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKCustomNetworkSetting;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKReferenceStationSource;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKServiceState;
@@ -68,6 +69,10 @@ import dji.v5.common.register.DJISDKInitEvent;
 import dji.v5.manager.KeyManager;
 import dji.v5.manager.SDKManager;
 import dji.v5.manager.aircraft.rtk.RTKCenter;
+import dji.v5.manager.aircraft.rtk.RTKLocationInfo;
+import dji.v5.manager.aircraft.rtk.RTKLocationInfoListener;
+import dji.v5.manager.aircraft.rtk.RTKSystemState;
+import dji.v5.manager.aircraft.rtk.RTKSystemStateListener;
 import dji.v5.manager.aircraft.rtk.network.INetworkServiceInfoListener;
 import dji.v5.manager.aircraft.simulator.InitializationSettings;
 import dji.v5.manager.aircraft.simulator.SimulatorManager;
@@ -86,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
     // Other stuff
     private LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
     private LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
-    private String missionFileName = "";
+    private String missionFileName = "casa.kmz";
     private Button btnStartStopMission;
     private Button btnPauseResumeMission;
     private TextView tvDroneConnected;
@@ -139,10 +144,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void setDevelopingArea() {
         /*
-         * 0: casa
-         * 1: bastia
+         * 1: casa
+         * 2: bastia
          */
-        int area = 1;
+        int area = 0;
 
         if (area == 1) {
             // 43.02722238036221, 12.58780784942592
@@ -306,6 +311,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadMission(View view) {
+        if (droneHomeLocation.getLatitude() == 0) {
+            tvLog.setText("Home point unknown");
+            return;
+        }
+
         File kmzFile = Util.copyKMZToExternalStorage(view.getContext(), missionFileName);
         WaypointMissionManager.getInstance().init();
         currentMissionPath = kmzFile.getAbsolutePath();
@@ -497,6 +507,34 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void setHome() {
+        KeyManager.getInstance().getValue(KeyTools.createKey(FlightControllerKey.KeyGPSSignalLevel), new CommonCallbacks.CompletionCallbackWithParam<GPSSignalLevel>() {
+            @Override
+            public void onSuccess(GPSSignalLevel gpsSignalLevel) {
+                Log.i(TAG, "KeyGPSSignalLevel - onSuccess: " + gpsSignalLevel.value());
+                if (gpsSignalLevel.value() >= 2) {
+
+                    KeyManager.getInstance().setValue(KeyTools.createKey(FlightControllerKey.KeyHomeLocation), droneCurrentLocation, new CommonCallbacks.CompletionCallback() {
+                        @Override
+                        public void onSuccess() {
+                            Log.i(TAG, "KeyHomeLocation - onSuccess");
+                        }
+
+                        @Override
+                        public void onFailure(@NonNull IDJIError idjiError) {
+                            Log.i(TAG, "KeyHomeLocation - onFailure: " + idjiError);
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull IDJIError idjiError) {
+
+            }
+        });
+    }
+
     private void startRTK() {
         RTKCenter.getInstance().setAircraftRTKModuleEnabled(true, new CommonCallbacks.CompletionCallback() {
             @Override
@@ -526,18 +564,6 @@ public class MainActivity extends AppCompatActivity {
                                                 "NRT30"
                                         ));
 
-//                                        RTKCenter.getInstance().getCustomRTKManager().getNetworkRTKCoordinateSystem(new CommonCallbacks.CompletionCallbackWithParam<CoordinateSystem>() {
-//                                            @Override
-//                                            public void onSuccess(CoordinateSystem coordinateSystem) {
-//                                                Log.i(TAG, "getNetworkRTKCoordinateSystem - onSuccess:" + coordinateSystem.toString());
-//                                            }
-//
-//                                            @Override
-//                                            public void onFailure(@NonNull IDJIError idjiError) {
-//                                                Log.i(TAG, "getNetworkRTKCoordinateSystem - onFailure:" + idjiError);
-//                                            }
-//                                        });
-
 //                                        RTKCenter.getInstance().getCustomRTKManager().startNetworkRTKService(new CommonCallbacks.CompletionCallback() {
 //                                            @Override
 //                                            public void onSuccess() {
@@ -555,7 +581,7 @@ public class MainActivity extends AppCompatActivity {
                                             double stdLongitude = newValue.getRtkLocation().getStdLongitude();
                                             double stdAltitude = newValue.getRtkLocation().getStdAltitude();
 
-                                            tvRtk.setText(String.format(
+                                            tvLog.setText(String.format(
                                                     "%s, %s, %s",
                                                     decimalFormat.format(stdLatitude),
                                                     decimalFormat.format(stdLongitude),
@@ -601,6 +627,36 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "setAircraftRTKModuleEnabled - false - onSuccess");
+
+                RTKCenter.getInstance().removeRTKLocationInfoListener(new RTKLocationInfoListener() {
+                    @Override
+                    public void onUpdate(RTKLocationInfo newValue) {
+                        Log.i(TAG, "removeRTKLocationInfoListener - onUpdate: " + newValue.toString());
+
+                        RTKCenter.getInstance().clearAllRTKLocationInfoListener();
+
+                        RTKCenter.getInstance().removeRTKSystemStateListener(new RTKSystemStateListener() {
+                            @Override
+                            public void onUpdate(RTKSystemState newValue) {
+                                Log.i(TAG, "removeRTKSystemStateListener - onUpdate: " + newValue.toString());
+
+                                RTKCenter.getInstance().clearAllRTKSystemStateListener();
+                            }
+                        });
+
+                        RTKCenter.getInstance().getCustomRTKManager().stopNetworkRTKService(new CommonCallbacks.CompletionCallback() {
+                            @Override
+                            public void onSuccess() {
+                                Log.i(TAG, "stopNetworkRTKService - onSuccess");
+                            }
+
+                            @Override
+                            public void onFailure(@NonNull IDJIError idjiError) {
+                                Log.i(TAG, "stopNetworkRTKService - onFailure: " + idjiError);
+                            }
+                        });
+                    }
+                });
             }
 
             @Override
@@ -954,8 +1010,13 @@ public class MainActivity extends AppCompatActivity {
     private void listenerAircraftLocation3D() {
         KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyAircraftLocation3D), this, (locationCoordinate3D, t1) -> {
             if (locationCoordinate3D != null) {
+//                Log.i(TAG, "droneCurrentLocation: " + locationCoordinate3D.getLatitude() + ", " + locationCoordinate3D.getLongitude());
                 droneCurrentLocation.setLatitude(locationCoordinate3D.getLatitude());
                 droneCurrentLocation.setLongitude(locationCoordinate3D.getLongitude());
+
+                if (droneCurrentLocation.getLatitude() != 0 && droneHomeLocation.getLatitude() == 0) {
+                    setHome();
+                }
 
                 tvDroneAltitude.setText(String.format("%s", decimalFormat.format(locationCoordinate3D.getAltitude())));
 
@@ -975,6 +1036,9 @@ public class MainActivity extends AppCompatActivity {
     private void listenerHomeLocation() {
         KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyHomeLocation), this, (locationCoordinate2D, t1) -> {
             if (locationCoordinate2D != null) {
+                tvLog.setText("Home point updated! " + locationCoordinate2D.getLatitude() + ", " + locationCoordinate2D.getLongitude());
+
+                Log.i(TAG, "droneHomeLocation: " + locationCoordinate2D.getLatitude() + ", " + locationCoordinate2D.getLongitude());
                 droneHomeLocation.setLatitude(locationCoordinate2D.getLatitude());
                 droneHomeLocation.setLongitude(locationCoordinate2D.getLongitude());
 
