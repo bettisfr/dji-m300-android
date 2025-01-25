@@ -102,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvDroneSpeed;
     private TextView tvGimbalPitchYaw;
     private TextView tvRtk;
+    private TextView tvHome;
     private TextView tvLog;
     private MapView mapView;
     private MapLibreMap gMap;
@@ -183,6 +184,7 @@ public class MainActivity extends AppCompatActivity {
 
         tvLog = findViewById(R.id.textview_log);
         tvRtk = findViewById(R.id.textview_rtk);
+        tvHome = findViewById(R.id.textview_home);
 
         Button toggleButton = findViewById(R.id.button_toggle_view);
         svCameraStream = findViewById(R.id.sv_camera_stream);
@@ -518,6 +520,7 @@ public class MainActivity extends AppCompatActivity {
                         @Override
                         public void onSuccess() {
                             Log.i(TAG, "KeyHomeLocation - onSuccess");
+                            tvHome.setText(getString(R.string.true_output));
                         }
 
                         @Override
@@ -628,35 +631,11 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "setAircraftRTKModuleEnabled - false - onSuccess");
 
-                RTKCenter.getInstance().removeRTKLocationInfoListener(new RTKLocationInfoListener() {
-                    @Override
-                    public void onUpdate(RTKLocationInfo newValue) {
-                        Log.i(TAG, "removeRTKLocationInfoListener - onUpdate: " + newValue.toString());
+                RTKCenter.getInstance().clearAllRTKLocationInfoListener();
 
-                        RTKCenter.getInstance().clearAllRTKLocationInfoListener();
+                RTKCenter.getInstance().clearAllRTKSystemStateListener();
 
-                        RTKCenter.getInstance().removeRTKSystemStateListener(new RTKSystemStateListener() {
-                            @Override
-                            public void onUpdate(RTKSystemState newValue) {
-                                Log.i(TAG, "removeRTKSystemStateListener - onUpdate: " + newValue.toString());
-
-                                RTKCenter.getInstance().clearAllRTKSystemStateListener();
-                            }
-                        });
-
-                        RTKCenter.getInstance().getCustomRTKManager().stopNetworkRTKService(new CommonCallbacks.CompletionCallback() {
-                            @Override
-                            public void onSuccess() {
-                                Log.i(TAG, "stopNetworkRTKService - onSuccess");
-                            }
-
-                            @Override
-                            public void onFailure(@NonNull IDJIError idjiError) {
-                                Log.i(TAG, "stopNetworkRTKService - onFailure: " + idjiError);
-                            }
-                        });
-                    }
-                });
+                tvLog.setText("RTK turned OFF");
             }
 
             @Override

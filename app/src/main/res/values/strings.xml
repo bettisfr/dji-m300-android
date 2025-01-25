@@ -21,6 +21,7 @@
     <string name="gimbal_label">Gimb:</string>
     <string name="log_label">Log:</string>
     <string name="rtk_label">RTK:</string>
+    <string name="home_label">Home:</string>
 
     <string name="load_mission_button">Load</string>
     <string name="start_mission_button">Start</string>

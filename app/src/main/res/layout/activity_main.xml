@@ -274,6 +274,23 @@
             android:textColor="#FFFFFF"
             android:padding="2dp"
             android:layout_weight="1" />
+
+        <!-- Home Status -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/home_label"
+            android:textColor="#FFFFFF"
+            android:padding="2dp" />
+
+        <TextView
+            android:id="@+id/textview_home"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="@string/empty_label"
+            android:textColor="#FFFFFF"
+            android:padding="2dp"
+            android:layout_weight="1" />
     </LinearLayout>
 
 
