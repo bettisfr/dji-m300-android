@@ -85,9 +85,8 @@ public class MainActivity extends AppCompatActivity {
     private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
     private final DecimalFormat integerFormat = new DecimalFormat("#");
     // Other stuff
-    private LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
-    private LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
-    private String missionFileName = "casa.kmz";
+    private final LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
+    private final LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
     private Button btnStartStopMission;
     private Button btnPauseResumeMission;
     private TextView tvDroneConnected;
@@ -132,36 +131,10 @@ public class MainActivity extends AppCompatActivity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        setDevelopingArea();
-
         setContentView(R.layout.activity_main);
         initUI();
         initRGBCamera();
         registerApp();
-    }
-
-    private void setDevelopingArea() {
-        /*
-         * 1: casa
-         * 2: bastia
-         */
-        int area = 0;
-
-        if (area == 1) {
-            // 43.02722238036221, 12.58780784942592
-            droneHomeLocation.setLatitude(43.02722238036221);
-            droneHomeLocation.setLongitude(12.58780784942592);
-            droneCurrentLocation.setLatitude(43.02722238036221);
-            droneCurrentLocation.setLongitude(12.58780784942592);
-            missionFileName = "casa.kmz";
-        } else if (area == 2) {
-            // 43.06217612517406, 12.549951779775455
-            droneHomeLocation.setLatitude(43.06217612517406);
-            droneHomeLocation.setLongitude(12.549951779775455);
-            droneCurrentLocation.setLatitude(43.06217612517406);
-            droneCurrentLocation.setLongitude(12.549951779775455);
-            missionFileName = "bastia.kmz";
-        }
     }
 
     public void initUI() {
@@ -311,10 +284,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadMission(View view) {
         if (droneHomeLocation.getLatitude() == 0) {
-            tvLog.setText("Home point unknown");
+            tvLog.setText(getString(R.string.home_point_unknown));
             return;
         }
 
+        String missionFileName = "casa.kmz";
         File kmzFile = Util.copyKMZToExternalStorage(view.getContext(), missionFileName);
         WaypointMissionManager.getInstance().init();
         currentMissionPath = kmzFile.getAbsolutePath();
@@ -507,7 +481,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setHome() {
-        KeyManager.getInstance().getValue(KeyTools.createKey(FlightControllerKey.KeyGPSSignalLevel), new CommonCallbacks.CompletionCallbackWithParam<GPSSignalLevel>() {
+        KeyManager.getInstance().getValue(KeyTools.createKey(FlightControllerKey.KeyGPSSignalLevel), new CommonCallbacks.CompletionCallbackWithParam<>() {
             @Override
             public void onSuccess(GPSSignalLevel gpsSignalLevel) {
                 Log.i(TAG, "KeyGPSSignalLevel - onSuccess: " + gpsSignalLevel.value());
@@ -644,7 +618,7 @@ public class MainActivity extends AppCompatActivity {
 
                 RTKCenter.getInstance().clearAllRTKSystemStateListener();
 
-                tvLog.setText("RTK turned OFF");
+                tvLog.setText(R.string.rtk_turned_off);
             }
 
             @Override
@@ -1024,7 +998,8 @@ public class MainActivity extends AppCompatActivity {
     private void listenerHomeLocation() {
         KeyManager.getInstance().listen(KeyTools.createKey(FlightControllerKey.KeyHomeLocation), this, (locationCoordinate2D, t1) -> {
             if (locationCoordinate2D != null) {
-                tvLog.setText("Home point updated! " + locationCoordinate2D.getLatitude() + ", " + locationCoordinate2D.getLongitude());
+                tvLog.setText(getString(R.string.home_point_updated, locationCoordinate2D.getLatitude(), locationCoordinate2D.getLongitude()));
+//                tvLog.setText("Home point updated! " + locationCoordinate2D.getLatitude() + ", " + locationCoordinate2D.getLongitude());
 
                 Log.i(TAG, "droneHomeLocation: " + locationCoordinate2D.getLatitude() + ", " + locationCoordinate2D.getLongitude());
                 droneHomeLocation.setLatitude(locationCoordinate2D.getLatitude());

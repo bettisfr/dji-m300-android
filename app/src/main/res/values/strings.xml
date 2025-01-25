@@ -1,6 +1,8 @@
 <resources>
     <string name="your_app_name">UAVMonitor</string>
 
+    <string name="home_point_updated">Home point updated! Latitude=%.4f, Longitude=%.4f</string>
+    <string name="home_point_unknown">Home point unknown</string>
     <string name="starting_wp_action">Doing Waypoint=%1$d Action=%2$d: %3$s</string>
     <string name="battery_percentage_format">%1$d%%</string>
     <string name="error_output">error</string>
@@ -37,4 +39,6 @@
 
     <string name="slide_left">«</string>
     <string name="slide_right">»</string>
+
+    <string name="rtk_turned_off">RTK turned OFF</string>
 </resources>
