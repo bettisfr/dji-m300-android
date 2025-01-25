@@ -56,7 +56,6 @@ import dji.sdk.keyvalue.value.camera.CameraVideoStreamSourceType;
 import dji.sdk.keyvalue.value.common.ComponentIndexType;
 import dji.sdk.keyvalue.value.common.EmptyMsg;
 import dji.sdk.keyvalue.value.common.LocationCoordinate2D;
-import dji.sdk.keyvalue.value.common.Velocity3D;
 import dji.sdk.keyvalue.value.flightcontroller.GPSSignalLevel;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKCustomNetworkSetting;
 import dji.sdk.keyvalue.value.rtkbasestation.RTKReferenceStationSource;
@@ -69,10 +68,6 @@ import dji.v5.common.register.DJISDKInitEvent;
 import dji.v5.manager.KeyManager;
 import dji.v5.manager.SDKManager;
 import dji.v5.manager.aircraft.rtk.RTKCenter;
-import dji.v5.manager.aircraft.rtk.RTKLocationInfo;
-import dji.v5.manager.aircraft.rtk.RTKLocationInfoListener;
-import dji.v5.manager.aircraft.rtk.RTKSystemState;
-import dji.v5.manager.aircraft.rtk.RTKSystemStateListener;
 import dji.v5.manager.aircraft.rtk.network.INetworkServiceInfoListener;
 import dji.v5.manager.aircraft.simulator.InitializationSettings;
 import dji.v5.manager.aircraft.simulator.SimulatorManager;
@@ -559,25 +554,26 @@ public class MainActivity extends AppCompatActivity {
                                     public void onServiceStateUpdate(RTKServiceState state) {
                                         Log.i(TAG, "addNetworkRTKServiceInfoListener - onServiceStateUpdate:" + state.toString());
 
-                                        RTKCenter.getInstance().getCustomRTKManager().setCustomNetworkRTKSettings(new RTKCustomNetworkSetting(
-                                                "46.254.154.14",
-                                                2101,
-                                                "pinotti_c",
-                                                "crpi03r04",
-                                                "NRT30"
-                                        ));
+                                        RTKCustomNetworkSetting setting = new RTKCustomNetworkSetting();
+                                        setting.setUserName(BuildConfig.UMBRIA_DIGITALE_RTK_USER);
+                                        setting.setPassword(BuildConfig.UMBRIA_DIGITALE_RTK_PASSWORD);
+                                        setting.setServerAddress(BuildConfig.UMBRIA_DIGITALE_RTK_SERVERADDRESS);
+                                        setting.setPort(BuildConfig.UMBRIA_DIGITALE_RTK_PORT);
+                                        setting.setMountPoint(BuildConfig.UMBRIA_DIGITALE_MOUNTPOINT);
 
-//                                        RTKCenter.getInstance().getCustomRTKManager().startNetworkRTKService(new CommonCallbacks.CompletionCallback() {
-//                                            @Override
-//                                            public void onSuccess() {
-//                                                Log.i(TAG, "startNetworkRTKService - onSuccess:");
-//                                            }
-//
-//                                            @Override
-//                                            public void onFailure(@NonNull IDJIError idjiError) {
-//                                                Log.i(TAG, "startNetworkRTKService - onFailure:" + idjiError);
-//                                            }
-//                                        });
+                                        RTKCenter.getInstance().getCustomRTKManager().setCustomNetworkRTKSettings(setting);
+
+                                        RTKCenter.getInstance().getCustomRTKManager().startNetworkRTKService(new CommonCallbacks.CompletionCallback() {
+                                            @Override
+                                            public void onSuccess() {
+                                                Log.i(TAG, "startNetworkRTKService - onSuccess:");
+                                            }
+
+                                            @Override
+                                            public void onFailure(@NonNull IDJIError idjiError) {
+                                                Log.i(TAG, "startNetworkRTKService - onFailure:" + idjiError);
+                                            }
+                                        });
 
                                         RTKCenter.getInstance().addRTKLocationInfoListener(newValue -> {
                                             double stdLatitude = newValue.getRtkLocation().getStdLatitude();
