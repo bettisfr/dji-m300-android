@@ -836,7 +836,7 @@ public class MainActivity extends AppCompatActivity {
         mapStyle.addLayer(waypointToWaypointLayer);
 
         // Add home location marker (green) at the end
-        mapStyle.addImage("home-marker-icon", BitmapFactory.decodeResource(getResources(), R.drawable.marker_green));
+        mapStyle.addImage("home-marker-icon", BitmapFactory.decodeResource(getResources(), R.drawable.home_location));
         GeoJsonSource homeMarkerSource = new GeoJsonSource("home-marker-source");
         List<Feature> homeFeatures = new ArrayList<>();
         homeFeatures.add(Feature.fromGeometry(Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude())));
@@ -878,7 +878,7 @@ public class MainActivity extends AppCompatActivity {
     private void updateDroneHomeAndCurrentLocation() {
         if (mapStyle != null) {
             // Update home location marker (no rotation)
-            Bitmap homeIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.marker_red);
+            Bitmap homeIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.home_location);
             if (mapStyle.getSource("home-location-source") != null) {
                 GeoJsonSource source = mapStyle.getSourceAs("home-location-source");
                 if (source != null) {
