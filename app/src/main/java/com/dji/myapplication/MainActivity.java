@@ -1,5 +1,6 @@
 package com.dji.myapplication;
 
+import static com.dji.myapplication.Util.copyFileToTempFolder;
 import static org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap;
 import static org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement;
 import static org.maplibre.android.style.layers.PropertyFactory.iconImage;
@@ -7,19 +8,30 @@ import static org.maplibre.android.style.layers.PropertyFactory.iconRotate;
 import static org.maplibre.android.style.layers.PropertyFactory.lineColor;
 import static org.maplibre.android.style.layers.PropertyFactory.lineWidth;
 
+import static dji.v5.utils.common.FileUtils.getFileName;
+
 import android.animation.ObjectAnimator;
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -44,6 +56,11 @@ import org.maplibre.geojson.LineString;
 import org.maplibre.geojson.Point;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,6 +99,7 @@ import dji.v5.manager.interfaces.SDKManagerCallback;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
+    private static final int PICK_KMZ_FILE_REQUEST = 1234;
     private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
     private final DecimalFormat integerFormat = new DecimalFormat("#");
     // Other stuff
@@ -119,6 +137,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        setSimulationHome();
+
         MapLibre.getInstance(this);
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -135,6 +155,13 @@ public class MainActivity extends AppCompatActivity {
         initUI();
         initRGBCamera();
         registerApp();
+    }
+
+    private void setSimulationHome() {
+        if (BuildConfig.SIMULATION == 1) {
+            droneHomeLocation.setLatitude(BuildConfig.SIMULATION_LATITUDE);
+            droneHomeLocation.setLongitude(BuildConfig.SIMULATION_LONGITUDE);
+        }
     }
 
     public void initUI() {
@@ -236,7 +263,7 @@ public class MainActivity extends AppCompatActivity {
 
         btnLoadMission.setOnClickListener(view -> {
             Log.i(TAG, "loadMission");
-            loadMission(view);
+            loadMission();
         });
 
         btnStartStopMission.setOnClickListener(view -> {
@@ -282,116 +309,133 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void loadMission(View view) {
+    private void openFileChooser() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/vnd.google-earth.kmz");
+        startActivityForResult(intent, PICK_KMZ_FILE_REQUEST);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_KMZ_FILE_REQUEST && resultCode == RESULT_OK) {
+            if (data != null) {
+                Uri uri = data.getData();
+                File tempFile = copyFileToTempFolder(this, uri);
+                if (tempFile != null) {
+                    currentMissionPath = tempFile.getAbsolutePath();
+
+                    KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath);
+
+                    Log.d("Command Execution:", "Checking file info: " + currentMissionPath + ": " + kmzInfo.getWaylineMissionConfigParseInfo().toString());
+
+                    setMissionOnMap(kmzInfo);
+
+                    WaypointMissionManager.getInstance().pushKMZFileToAircraft(currentMissionPath, new CommonCallbacks.CompletionCallbackWithProgress<>() {
+                        @Override
+                        public void onProgressUpdate(Double progress) {
+                            Log.d(TAG, "Upload progress: " + progress + "%");
+
+                            tvLog.setText(String.format(Locale.US, "Upload progress: %.2f%%", progress));
+                        }
+
+                        @Override
+                        public void onSuccess() {
+                            Log.i(TAG, "KMZ mission uploaded successfully.");
+
+                            tvLog.setText(getString(R.string.kmz_upload_success));
+
+                            btnStartStopMission.setEnabled(true);
+                            btnStartStopMission.setText(getString(R.string.start_mission_button));
+
+                            WaypointMissionManager.getInstance().addWaypointActionListener(new WaypointActionListener() {
+                                @Override
+                                public void onExecutionStart(int actionId) {
+                                    Log.i(TAG, "onExecutionStart - actionId=" + actionId);
+                                }
+
+                                @Override
+                                public void onExecutionFinish(int actionId, @Nullable IDJIError error) {
+                                    Log.i(TAG, "onExecutionFinish - actionId=" + actionId);
+                                }
+
+                                @Override
+                                public void onExecutionStart(int actionGroup, int actionId) {
+                                    Log.i(TAG, "onExecutionStart - actionGroup=" + actionGroup + ", actionId=" + actionId);
+
+                                    WaylineActionInfo actionInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath)
+                                            .getWaylineWaylinesParseInfo()
+                                            .getWaylines().get(0)
+                                            .getActionGroups().get(actionGroup)
+                                            .getActions().get(actionId);
+
+                                    // Get the action type
+                                    String actionType = actionInfo.getActionType().toString();
+
+                                    String actionDetails = actionType + ": ";
+
+                                    // Evaluate based on action type
+                                    switch (actionType) {
+                                        case "ROTATE_YAW":
+                                            actionDetails += "Heading: " + actionInfo.getAircraftRotateYawParam().getHeading().toString();
+                                            break;
+
+                                        case "HOVER":
+                                            actionDetails += "Time: " + actionInfo.getAircraftHoverParam().getHoverTime().toString();
+                                            break;
+
+                                        case "GIMBAL_ROTATE":
+                                            actionDetails += "Pitch: " + actionInfo.getGimbalRotateParam().getPitch().toString()
+                                                    + ", Yaw: " + actionInfo.getGimbalRotateParam().getYaw().toString();
+                                            break;
+
+                                        case "FOCUS":
+                                            actionDetails += "X: " + actionInfo.getFocusParam().getFocus_x().toString()
+                                                    + ", Y: " + actionInfo.getFocusParam().getFocus_y().toString();
+                                            break;
+
+                                        case "ZOOM":
+                                            actionDetails += "Focal Length: " + actionInfo.getZoomParam().getFocalLength().toString();
+                                            break;
+
+                                        case "TAKE_PHOTO":
+                                            actionDetails += "Suffix: " + actionInfo.getTakePhotoParam().getFileSuffix();
+                                            break;
+
+                                        default:
+                                            actionDetails = "UNKNOWN ACTION";
+                                            break;
+                                    }
+
+                                    // Update the log with the action type and details
+                                    tvLog.setText(getString(R.string.starting_wp_action, actionGroup, actionId, actionDetails));
+                                }
+
+                                @Override
+                                public void onExecutionFinish(int actionGroup, int actionId, @Nullable IDJIError error) {
+                                    Log.i(TAG, "onExecutionFinish - actionGroup=" + actionGroup + ", actionId=" + actionId);
+                                }
+                            });
+                        }
+
+                        @Override
+                        public void onFailure(@NonNull IDJIError idjiError) {
+                            Log.e(TAG, "Failed to upload KMZ mission: " + idjiError);
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    private void loadMission() {
         if (droneHomeLocation.getLatitude() == 0) {
             tvLog.setText(getString(R.string.home_point_unknown));
             return;
         }
 
-        String missionFileName = "casa.kmz";
-        File kmzFile = Util.copyKMZToExternalStorage(view.getContext(), missionFileName);
-        WaypointMissionManager.getInstance().init();
-        currentMissionPath = kmzFile.getAbsolutePath();
-        KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath);
-
-        Log.d("Command Execution:", "Checking file info: " + currentMissionPath + ": " + kmzInfo.getWaylineMissionConfigParseInfo().toString());
-
-        setMissionOnMap(kmzInfo);
-
-        WaypointMissionManager.getInstance().pushKMZFileToAircraft(kmzFile.getAbsolutePath(), new CommonCallbacks.CompletionCallbackWithProgress<>() {
-            @Override
-            public void onProgressUpdate(Double progress) {
-                Log.d(TAG, "Upload progress: " + progress + "%");
-
-                tvLog.setText(String.format(Locale.US, "Upload progress: %.2f%%", progress));
-            }
-
-            @Override
-            public void onSuccess() {
-                Log.i(TAG, "KMZ mission uploaded successfully.");
-
-                tvLog.setText(getString(R.string.kmz_upload_success));
-
-                btnStartStopMission.setEnabled(true);
-                btnStartStopMission.setText(getString(R.string.start_mission_button));
-
-                WaypointMissionManager.getInstance().addWaypointActionListener(new WaypointActionListener() {
-                    @Override
-                    public void onExecutionStart(int actionId) {
-                        Log.i(TAG, "onExecutionStart - actionId=" + actionId);
-                    }
-
-                    @Override
-                    public void onExecutionFinish(int actionId, @Nullable IDJIError error) {
-                        Log.i(TAG, "onExecutionFinish - actionId=" + actionId);
-                    }
-
-                    @Override
-                    public void onExecutionStart(int actionGroup, int actionId) {
-                        Log.i(TAG, "onExecutionStart - actionGroup=" + actionGroup + ", actionId=" + actionId);
-
-                        WaylineActionInfo actionInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath)
-                                .getWaylineWaylinesParseInfo()
-                                .getWaylines().get(0)
-                                .getActionGroups().get(actionGroup)
-                                .getActions().get(actionId);
-
-                        // Get the action type
-                        String actionType = actionInfo.getActionType().toString();
-
-                        String actionDetails = actionType + ": ";
-
-                        // Evaluate based on action type
-                        switch (actionType) {
-                            case "ROTATE_YAW":
-                                actionDetails += "Heading: " + actionInfo.getAircraftRotateYawParam().getHeading().toString();
-                                break;
-
-                            case "HOVER":
-                                actionDetails += "Time: " + actionInfo.getAircraftHoverParam().getHoverTime().toString();
-                                break;
-
-                            case "GIMBAL_ROTATE":
-                                actionDetails += "Pitch: " + actionInfo.getGimbalRotateParam().getPitch().toString()
-                                        + ", Yaw: " + actionInfo.getGimbalRotateParam().getYaw().toString();
-                                break;
-
-                            case "FOCUS":
-                                actionDetails += "X: " + actionInfo.getFocusParam().getFocus_x().toString()
-                                        + ", Y: " + actionInfo.getFocusParam().getFocus_y().toString();
-                                break;
-
-                            case "ZOOM":
-                                actionDetails += "Focal Length: " + actionInfo.getZoomParam().getFocalLength().toString();
-                                break;
-
-                            case "TAKE_PHOTO":
-                                actionDetails += "Suffix: " + actionInfo.getTakePhotoParam().getFileSuffix();
-                                break;
-
-                            default:
-                                actionDetails = "UNKNOWN ACTION";
-                                break;
-                        }
-
-                        // Update the log with the action type and details
-                        tvLog.setText(getString(R.string.starting_wp_action, actionGroup, actionId, actionDetails));
-                    }
-
-                    @Override
-                    public void onExecutionFinish(int actionGroup, int actionId, @Nullable IDJIError error) {
-                        Log.i(TAG, "onExecutionFinish - actionGroup=" + actionGroup + ", actionId=" + actionId);
-
-//                        tvLog.setText(getString(R.string.finishing_wp_action, actionGroup, actionId));
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure(@NonNull IDJIError idjiError) {
-                Log.e(TAG, "Failed to upload KMZ mission: " + idjiError);
-            }
-        });
+        openFileChooser();
     }
 
     private void startMission() {

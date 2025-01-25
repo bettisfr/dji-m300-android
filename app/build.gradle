@@ -26,6 +26,10 @@ android {
         buildConfigField "Integer", "UMBRIA_DIGITALE_RTK_PORT", "${UMBRIA_DIGITALE_RTK_PORT}"
         buildConfigField "String", "UMBRIA_DIGITALE_MOUNTPOINT", "${UMBRIA_DIGITALE_MOUNTPOINT}"
 
+        buildConfigField "Integer", "SIMULATION", "${SIMULATION}"
+        buildConfigField "Double", "SIMULATION_LATITUDE", "${SIMULATION_LATITUDE}"
+        buildConfigField "Double", "SIMULATION_LONGITUDE", "${SIMULATION_LONGITUDE}"
+
         ndk {
             abiFilters 'arm64-v8a' // MSDK only supports arm64-v8a architecture
         }
