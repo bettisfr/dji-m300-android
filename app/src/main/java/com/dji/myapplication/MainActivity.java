@@ -88,9 +88,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int PICK_KMZ_FILE_REQUEST = 1234;
     private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
     private final DecimalFormat integerFormat = new DecimalFormat("#");
+
     // Other stuff
-    private final LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
-    private final LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
     private Button btnStartStopMission;
     private Button btnPauseResumeMission;
     private TextView tvDroneConnected;
@@ -112,8 +111,11 @@ public class MainActivity extends AppCompatActivity {
     private boolean isMissionStarted = false;
     private boolean isMissionPaused = false;
     private boolean isRtkWorking = false;
+    private boolean isSimulatorOn = false;
     private double droneHeading;
     private String currentMissionPath;
+    private final LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
+    private final LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
 
     public static boolean checkGPSCoordinates(double latitude, double longitude) {
         return (latitude > -90 && latitude < 90 && longitude > -180 && longitude < 180) && (latitude != 0f && longitude != 0f);
@@ -313,8 +315,6 @@ public class MainActivity extends AppCompatActivity {
                     currentMissionPath = tempFile.getAbsolutePath();
 
                     KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath);
-
-                    Log.d("Command Execution:", "Checking file info: " + currentMissionPath + ": " + kmzInfo.getWaylineMissionConfigParseInfo().toString());
 
                     setMissionOnMap(kmzInfo);
 
@@ -659,13 +659,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startSimulator() {
-        stopRTK();
+//        stopRTK();
 
         SimulatorManager.getInstance().enableSimulator(InitializationSettings.createInstance(droneHomeLocation, 20), new CommonCallbacks.CompletionCallback() {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "enableSimulator - onSuccess");
+
+                isSimulatorOn = true;
                 tvSimulator.setText(getString(R.string.true_output));
+                tvHome.setText(getString(R.string.true_output));
+                tvHome.setTextColor(Color.CYAN);
+
                 updateDroneHomeAndCurrentLocation();
 
                 SimulatorManager.getInstance().addSimulatorStateListener(state -> updateDroneHomeAndCurrentLocation());
@@ -684,7 +689,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess() {
                 Log.i(TAG, "disableSimulator - onSuccess");
+
+                isSimulatorOn = false;
                 tvSimulator.setText(getString(R.string.false_output));
+                tvHome.setTextColor(Color.WHITE);
             }
 
             @Override
