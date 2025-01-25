@@ -11,6 +11,7 @@ import android.animation.ObjectAnimator;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
@@ -96,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvDroneAltitude;
     private TextView tvDroneSpeed;
     private TextView tvGimbalPitchYaw;
-    private TextView tvRtk;
+//    private TextView tvRtk;
     private TextView tvHome;
     private TextView tvLog;
     private MapView mapView;
@@ -107,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isLeftPanelOpen = true;
     private boolean isMissionStarted = false;
     private boolean isMissionPaused = false;
+    private boolean isRtkWorking = false;
     private double droneHeading;
     private String currentMissionPath;
 
@@ -178,7 +180,7 @@ public class MainActivity extends AppCompatActivity {
         tvGimbalPitchYaw = findViewById(R.id.textview_gimbal_pitch_yaw);
 
         tvLog = findViewById(R.id.textview_log);
-        tvRtk = findViewById(R.id.textview_rtk);
+//        tvRtk = findViewById(R.id.textview_rtk);
         tvHome = findViewById(R.id.textview_home);
 
         Button toggleButton = findViewById(R.id.button_toggle_view);
@@ -554,6 +556,15 @@ public class MainActivity extends AppCompatActivity {
                                     public void onServiceStateUpdate(RTKServiceState state) {
                                         Log.i(TAG, "addNetworkRTKServiceInfoListener - onServiceStateUpdate:" + state.toString());
 
+                                        if (state.equals(RTKServiceState.TRANSMITTING)) {
+                                            isRtkWorking = true;
+                                            setHome();
+                                            tvHome.setTextColor(Color.RED);
+                                        } else {
+                                            isRtkWorking = false;
+                                            tvHome.setTextColor(Color.WHITE);
+                                        }
+
                                         RTKCustomNetworkSetting setting = new RTKCustomNetworkSetting();
                                         setting.setUserName(BuildConfig.UMBRIA_DIGITALE_RTK_USER);
                                         setting.setPassword(BuildConfig.UMBRIA_DIGITALE_RTK_PASSWORD);
@@ -580,12 +591,14 @@ public class MainActivity extends AppCompatActivity {
                                             double stdLongitude = newValue.getRtkLocation().getStdLongitude();
                                             double stdAltitude = newValue.getRtkLocation().getStdAltitude();
 
-                                            tvLog.setText(String.format(
-                                                    "%s, %s, %s",
-                                                    decimalFormat.format(stdLatitude),
-                                                    decimalFormat.format(stdLongitude),
-                                                    decimalFormat.format(stdAltitude)
-                                            ));
+                                            if (!isRtkWorking) {
+                                                tvLog.setText(String.format(
+                                                        "%s, %s, %s",
+                                                        decimalFormat.format(stdLatitude),
+                                                        decimalFormat.format(stdLongitude),
+                                                        decimalFormat.format(stdAltitude)
+                                                ));
+                                            }
                                         });
 
                                         RTKCenter.getInstance().addRTKSystemStateListener(newValue ->
