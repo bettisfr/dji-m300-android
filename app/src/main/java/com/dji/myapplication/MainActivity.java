@@ -6,6 +6,7 @@ import static org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacem
 import static org.maplibre.android.style.layers.PropertyFactory.iconImage;
 import static org.maplibre.android.style.layers.PropertyFactory.iconRotate;
 import static org.maplibre.android.style.layers.PropertyFactory.lineColor;
+import static org.maplibre.android.style.layers.PropertyFactory.lineDasharray;
 import static org.maplibre.android.style.layers.PropertyFactory.lineWidth;
 
 import android.animation.ObjectAnimator;
@@ -98,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvDroneYaw;
     private TextView tvDroneAltitude;
     private TextView tvDroneSpeed;
-    private TextView tvGimbalPitchYaw;
+//    private TextView tvGimbalPitchYaw;
 //    private TextView tvRtk;
     private TextView tvHome;
     private TextView tvLog;
@@ -165,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
         tvDroneYaw = findViewById(R.id.textview_drone_yaw);
         tvDroneAltitude = findViewById(R.id.textview_drone_altitude);
         tvDroneSpeed = findViewById(R.id.textview_drone_speed);
-        tvGimbalPitchYaw = findViewById(R.id.textview_gimbal_pitch_yaw);
+//        tvGimbalPitchYaw = findViewById(R.id.textview_gimbal_pitch_yaw);
 
         tvLog = findViewById(R.id.textview_log);
 //        tvRtk = findViewById(R.id.textview_rtk);
@@ -786,8 +787,9 @@ public class MainActivity extends AppCompatActivity {
 
         LineLayer homeToFirstWaypointLayer = new LineLayer("home-to-firstwaypoint-layer", "home-to-firstwaypoint-source");
         homeToFirstWaypointLayer.setProperties(
-                lineColor("magenta"),  // Set the line color to magenta
-                lineWidth(4.0f)        // Set the line width
+                lineColor("magenta"),
+                lineWidth(2.0f),
+                lineDasharray(new Float[]{2f, 4f})
         );
         mapStyle.addLayer(homeToFirstWaypointLayer); // Add line layer from home to first waypoint
 
@@ -806,8 +808,9 @@ public class MainActivity extends AppCompatActivity {
 
         LineLayer lastWaypointToHomeLayer = new LineLayer("lastwaypoint-to-home-layer", "lastwaypoint-to-home-source");
         lastWaypointToHomeLayer.setProperties(
-                lineColor("magenta"),  // Set the line color to magenta
-                lineWidth(4.0f)        // Set the line width
+                lineColor("magenta"),
+                lineWidth(2.0f),
+                lineDasharray(new Float[]{2f, 4f})
         );
         mapStyle.addLayer(lastWaypointToHomeLayer); // Add line layer from last waypoint to home
 
@@ -828,8 +831,8 @@ public class MainActivity extends AppCompatActivity {
         // Create LineLayer for waypoint-to-waypoint connections (blue)
         LineLayer waypointToWaypointLayer = new LineLayer("waypoint-to-waypoint-layer", "waypoint-to-waypoint-source");
         waypointToWaypointLayer.setProperties(
-                lineColor("blue"),  // Set the line color to blue
-                lineWidth(4.0f)     // Set the line width
+                lineColor("orange"),
+                lineWidth(2.0f)
         );
 
         // Add line layer for waypoint-to-waypoint connections
@@ -845,11 +848,11 @@ public class MainActivity extends AppCompatActivity {
 
         SymbolLayer homeMarkerLayer = new SymbolLayer("home-marker-layer", "home-marker-source");
         homeMarkerLayer.setProperties(
-                iconImage("home-marker-icon"), // Green home marker icon
+                iconImage("home-marker-icon"),
                 iconAllowOverlap(true),
                 iconIgnorePlacement(true)
         );
-        mapStyle.addLayer(homeMarkerLayer); // Add home marker layer
+        mapStyle.addLayer(homeMarkerLayer);
 
         // Add waypoint markers (red) at the end
         mapStyle.addImage("waypoint-marker-icon", BitmapFactory.decodeResource(getResources(), R.drawable.marker_red));
@@ -867,12 +870,12 @@ public class MainActivity extends AppCompatActivity {
 
         SymbolLayer waypointMarkerLayer = new SymbolLayer("waypoint-marker-layer", "waypoint-marker-source");
         waypointMarkerLayer.setProperties(
-                iconImage("waypoint-marker-icon"), // Red waypoint marker icon
+                iconImage("waypoint-marker-icon"),
                 iconAllowOverlap(true),
                 iconIgnorePlacement(true)
         );
 
-        mapStyle.addLayer(waypointMarkerLayer); // Add waypoint markers layer
+        mapStyle.addLayer(waypointMarkerLayer);
     }
 
     private void updateDroneHomeAndCurrentLocation() {
@@ -899,7 +902,7 @@ public class MainActivity extends AppCompatActivity {
 
             // Update current location marker (only if valid GPS coordinates) with rotation for the drone
             if (checkGPSCoordinates(droneCurrentLocation.getLatitude(), droneCurrentLocation.getLongitude())) {
-                Bitmap currentIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.aircraft);
+                Bitmap currentIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.drone);
                 if (mapStyle.getSource("current-location-source") != null) {
                     GeoJsonSource source = mapStyle.getSourceAs("current-location-source");
                     if (source != null) {
@@ -995,15 +998,15 @@ public class MainActivity extends AppCompatActivity {
 
     private void listenerGimbalAttitude() {
         KeyManager.getInstance().listen(KeyTools.createKey(GimbalKey.KeyGimbalAttitude), this, (attitude, t1) -> {
-            // Get gimbal attitude data. The yaw angle uses the north east down coordinate system.
-            // If you need to get the yaw angle of the gimbal relative to the nose of the aircraft, please call KeyYawRelativeToAircraftHeading.
-            if (attitude != null) {
-                tvGimbalPitchYaw.setText(String.format(
-                        "%s, %s",
-                        integerFormat.format(attitude.getPitch()),
-                        integerFormat.format(attitude.getYaw())
-                ));
-            }
+//            // Get gimbal attitude data. The yaw angle uses the north east down coordinate system.
+//            // If you need to get the yaw angle of the gimbal relative to the nose of the aircraft, please call KeyYawRelativeToAircraftHeading.
+//            if (attitude != null) {
+//                tvGimbalPitchYaw.setText(String.format(
+//                        "%s, %s",
+//                        integerFormat.format(attitude.getPitch()),
+//                        integerFormat.format(attitude.getYaw())
+//                ));
+//            }
         });
     }
 
