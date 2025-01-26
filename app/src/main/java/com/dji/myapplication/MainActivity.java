@@ -24,7 +24,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -125,8 +124,6 @@ public class MainActivity extends AppCompatActivity {
     private boolean isMissionStarted = false;
     private boolean isMissionPaused = false;
     private boolean isRtkWorking = false;
-    private boolean isSimulatorOn = false;
-    private final boolean isMediaOn = false;
     private double droneHeading;
     private String currentMissionPath;
 
@@ -383,205 +380,231 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(intent, PICK_KMZ_FILE_REQUEST);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == PICK_KMZ_FILE_REQUEST && resultCode == RESULT_OK) {
-            if (data != null) {
-                Uri uri = data.getData();
-                File tempFile = copyFileToTempFolder(this, uri);
-                if (tempFile != null) {
-                    currentMissionPath = tempFile.getAbsolutePath();
+    private void onActivityResultLoadMission(Uri uri) {
+        File tempFile = copyFileToTempFolder(this, uri);
+        if (tempFile != null) {
+            currentMissionPath = tempFile.getAbsolutePath();
 
-                    KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath);
+            KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath);
 
-                    setMissionOnMap(kmzInfo);
+            setMissionOnMap(kmzInfo);
 
-                    WaypointMissionManager.getInstance().pushKMZFileToAircraft(currentMissionPath, new CommonCallbacks.CompletionCallbackWithProgress<>() {
+            WaypointMissionManager.getInstance().pushKMZFileToAircraft(currentMissionPath, new CommonCallbacks.CompletionCallbackWithProgress<>() {
+                @Override
+                public void onProgressUpdate(Double progress) {
+                    Log.d(TAG, "Upload progress: " + progress + "%");
+
+                    tvLog.setText(String.format(Locale.US, "Upload progress: %.2f%%", progress));
+                }
+
+                @Override
+                public void onSuccess() {
+                    Log.i(TAG, "KMZ mission uploaded successfully.");
+
+                    tvLog.setText(getString(R.string.kmz_upload_success));
+
+                    btnStartStopMission.setEnabled(true);
+                    btnStartStopMission.setText(getString(R.string.start_mission_button));
+
+                    WaypointMissionManager.getInstance().addWaypointActionListener(new WaypointActionListener() {
                         @Override
-                        public void onProgressUpdate(Double progress) {
-                            Log.d(TAG, "Upload progress: " + progress + "%");
-
-                            tvLog.setText(String.format(Locale.US, "Upload progress: %.2f%%", progress));
+                        public void onExecutionStart(int actionId) {
+                            Log.i(TAG, "onExecutionStart - actionId=" + actionId);
                         }
 
                         @Override
-                        public void onSuccess() {
-                            Log.i(TAG, "KMZ mission uploaded successfully.");
-
-                            tvLog.setText(getString(R.string.kmz_upload_success));
-
-                            btnStartStopMission.setEnabled(true);
-                            btnStartStopMission.setText(getString(R.string.start_mission_button));
-
-                            WaypointMissionManager.getInstance().addWaypointActionListener(new WaypointActionListener() {
-                                @Override
-                                public void onExecutionStart(int actionId) {
-                                    Log.i(TAG, "onExecutionStart - actionId=" + actionId);
-                                }
-
-                                @Override
-                                public void onExecutionFinish(int actionId, @Nullable IDJIError error) {
-                                    Log.i(TAG, "onExecutionFinish - actionId=" + actionId);
-                                }
-
-                                @Override
-                                public void onExecutionStart(int actionGroup, int actionId) {
-                                    Log.i(TAG, "onExecutionStart - actionGroup=" + actionGroup + ", actionId=" + actionId);
-
-                                    WaylineActionInfo actionInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath)
-                                            .getWaylineWaylinesParseInfo()
-                                            .getWaylines().get(0)
-                                            .getActionGroups().get(actionGroup)
-                                            .getActions().get(actionId);
-
-                                    // Get the action type
-                                    String actionType = actionInfo.getActionType().toString();
-
-                                    String actionDetails = actionType + ": ";
-
-                                    // Evaluate based on action type
-                                    switch (actionType) {
-                                        case "ROTATE_YAW":
-                                            actionDetails += "Heading: " + actionInfo.getAircraftRotateYawParam().getHeading().toString();
-                                            break;
-
-                                        case "HOVER":
-                                            actionDetails += "Time: " + actionInfo.getAircraftHoverParam().getHoverTime().toString();
-                                            break;
-
-                                        case "GIMBAL_ROTATE":
-                                            actionDetails += "Pitch: " + actionInfo.getGimbalRotateParam().getPitch().toString()
-                                                    + ", Yaw: " + actionInfo.getGimbalRotateParam().getYaw().toString();
-                                            break;
-
-                                        case "FOCUS":
-                                            actionDetails += "X: " + actionInfo.getFocusParam().getFocus_x().toString()
-                                                    + ", Y: " + actionInfo.getFocusParam().getFocus_y().toString();
-                                            break;
-
-                                        case "ZOOM":
-                                            actionDetails += "Focal Length: " + actionInfo.getZoomParam().getFocalLength().toString();
-                                            break;
-
-                                        case "TAKE_PHOTO":
-                                            actionDetails += "Suffix: " + actionInfo.getTakePhotoParam().getFileSuffix();
-                                            break;
-
-                                        default:
-                                            actionDetails = "UNKNOWN ACTION";
-                                            break;
-                                    }
-
-                                    // Update the log with the action type and details
-                                    tvLog.setText(getString(R.string.starting_wp_action, actionGroup, actionId, actionDetails));
-                                }
-
-                                @Override
-                                public void onExecutionFinish(int actionGroup, int actionId, @Nullable IDJIError error) {
-                                    Log.i(TAG, "onExecutionFinish - actionGroup=" + actionGroup + ", actionId=" + actionId);
-                                }
-                            });
+                        public void onExecutionFinish(int actionId, @Nullable IDJIError error) {
+                            Log.i(TAG, "onExecutionFinish - actionId=" + actionId);
                         }
 
                         @Override
-                        public void onFailure(@NonNull IDJIError idjiError) {
-                            Log.e(TAG, "Failed to upload KMZ mission: " + idjiError);
+                        public void onExecutionStart(int actionGroup, int actionId) {
+                            Log.i(TAG, "onExecutionStart - actionGroup=" + actionGroup + ", actionId=" + actionId);
+
+                            WaylineActionInfo actionInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath)
+                                    .getWaylineWaylinesParseInfo()
+                                    .getWaylines().get(0)
+                                    .getActionGroups().get(actionGroup)
+                                    .getActions().get(actionId);
+
+                            // Get the action type
+                            String actionType = actionInfo.getActionType().toString();
+
+                            String actionDetails = actionType + ": ";
+
+                            // Evaluate based on action type
+                            switch (actionType) {
+                                case "ROTATE_YAW":
+                                    actionDetails += "Heading: " + actionInfo.getAircraftRotateYawParam().getHeading().toString();
+                                    break;
+
+                                case "HOVER":
+                                    actionDetails += "Time: " + actionInfo.getAircraftHoverParam().getHoverTime().toString();
+                                    break;
+
+                                case "GIMBAL_ROTATE":
+                                    actionDetails += "Pitch: " + actionInfo.getGimbalRotateParam().getPitch().toString()
+                                            + ", Yaw: " + actionInfo.getGimbalRotateParam().getYaw().toString();
+                                    break;
+
+                                case "FOCUS":
+                                    actionDetails += "X: " + actionInfo.getFocusParam().getFocus_x().toString()
+                                            + ", Y: " + actionInfo.getFocusParam().getFocus_y().toString();
+                                    break;
+
+                                case "ZOOM":
+                                    actionDetails += "Focal Length: " + actionInfo.getZoomParam().getFocalLength().toString();
+                                    break;
+
+                                case "TAKE_PHOTO":
+                                    actionDetails += "Suffix: " + actionInfo.getTakePhotoParam().getFileSuffix();
+                                    break;
+
+                                default:
+                                    actionDetails = "UNKNOWN ACTION";
+                                    break;
+                            }
+
+                            // Update the log with the action type and details
+                            tvLog.setText(getString(R.string.starting_wp_action, actionGroup, actionId, actionDetails));
+                        }
+
+                        @Override
+                        public void onExecutionFinish(int actionGroup, int actionId, @Nullable IDJIError error) {
+                            Log.i(TAG, "onExecutionFinish - actionGroup=" + actionGroup + ", actionId=" + actionId);
                         }
                     });
                 }
-            }
-        } else if (requestCode == REQUEST_CODE_OPEN_DOCUMENT_TREE && resultCode == RESULT_OK) {
-            if (data != null) {
-                Uri treeUri = data.getData();
 
-                MediaFileListDataSource mediaSource = new MediaFileListDataSource.Builder().setIndexType(ComponentIndexType.LEFT_OR_MAIN).build();
-                MediaManager.getInstance().setMediaFileDataSource(mediaSource);
+                @Override
+                public void onFailure(@NonNull IDJIError idjiError) {
+                    Log.e(TAG, "Failed to upload KMZ mission: " + idjiError);
+                }
+            });
+        }
+    }
 
-                PullMediaFileListParam param = new PullMediaFileListParam.Builder().mediaFileIndex(-1).build();
-                MediaManager.getInstance().pullMediaFileListFromCamera(param, new CommonCallbacks.CompletionCallback() {
-                    @Override
-                    public void onSuccess() {
-                        Log.i(TAG, "pullMediaFileListFromCamera - onSuccess");
+    private void onActivityResultPullMedia(Uri treeUri) {
+        MediaFileListDataSource mediaSource = new MediaFileListDataSource.Builder().setIndexType(ComponentIndexType.LEFT_OR_MAIN).build();
+        MediaManager.getInstance().setMediaFileDataSource(mediaSource);
 
-                        MediaFileListData fileListData = MediaManager.getInstance().getMediaFileListData();
-                        List<MediaFile> mediaFileList = fileListData.getData();
+        PullMediaFileListParam param = new PullMediaFileListParam.Builder().mediaFileIndex(-1).build();
+        MediaManager.getInstance().pullMediaFileListFromCamera(param, new CommonCallbacks.CompletionCallback() {
+            @Override
+            public void onSuccess() {
+                Log.i(TAG, "pullMediaFileListFromCamera - onSuccess");
 
-                        int totalFiles = mediaFileList.size();
-                        final int[] totalDone = {0};
+                MediaFileListData fileListData = MediaManager.getInstance().getMediaFileListData();
+                List<MediaFile> mediaFileList = fileListData.getData();
 
-                        if (totalFiles == 0) {
-                            runOnUiThread(() ->
-                                    tvLog.setText("Nothing to pull from camera")
-                            );
-                        }
+                int totalFiles = mediaFileList.size();
+                final int[] totalDone = {0};
 
-                        DocumentFile pickedDir = DocumentFile.fromTreeUri(getApplicationContext(), treeUri);
+                if (totalFiles == 0) {
+                    runOnUiThread(() ->
+                            tvLog.setText("Nothing to pull from camera")
+                    );
+                }
 
-                        for (MediaFile mediaFile : mediaFileList) {
-                            String fileName = mediaFile.getFileName();
-                            DocumentFile newFile = pickedDir.createFile("application/octet-stream", fileName);
+                DocumentFile pickedDir = DocumentFile.fromTreeUri(getApplicationContext(), treeUri);
 
-                            try (OutputStream outputStream = getContentResolver().openOutputStream(newFile.getUri());
-                                 BufferedOutputStream bos = new BufferedOutputStream(outputStream)) {
+                for (MediaFile mediaFile : mediaFileList) {
+                    String fileName = mediaFile.getFileName();
+                    DocumentFile newFile = pickedDir.createFile("application/octet-stream", fileName);
 
-                                mediaFile.pullOriginalMediaFileFromCamera(0L, new MediaFileDownloadListener() {
-                                    @Override
-                                    public void onStart() {
+                    if (newFile != null) {
+                        try {
+                            OutputStream outputStream = getContentResolver().openOutputStream(newFile.getUri());
+                            BufferedOutputStream bos = new BufferedOutputStream(outputStream);
 
+                            mediaFile.pullOriginalMediaFileFromCamera(0L, new MediaFileDownloadListener() {
+                                @Override
+                                public void onStart() {
+                                    runOnUiThread(() ->
+                                            Log.i(TAG, "Starting download for " + fileName)
+                                    );
+                                }
+
+                                @Override
+                                public void onProgress(long total, long current) {
+                                    int progress = (int) (100 * current / total);
+                                    runOnUiThread(() ->
+                                            Log.i(TAG, "Download progress for " + fileName + ": " + progress + "%")
+                                    );
+                                }
+
+                                @Override
+                                public void onRealtimeDataUpdate(byte[] data, long position) {
+                                    try {
+                                        bos.write(data);
+                                    } catch (IOException e) {
+                                        Log.e(TAG, "Write error for " + fileName + ": " + e.getMessage());
                                     }
+                                }
 
-                                    @Override
-                                    public void onProgress(long total, long current) {
-                                        int progress = (int) (100 * current / total);
-                                        runOnUiThread(() ->
-                                                Log.i(TAG, "Download progress for " + fileName + ": " + progress + "%")
-                                        );
-                                    }
-
-                                    @Override
-                                    public void onRealtimeDataUpdate(byte[] data, long position) {
-                                        try {
-                                            bos.write(data);
-                                            bos.flush();
-                                        } catch (IOException e) {
-                                            Log.e(TAG, "Write error: " + e.getMessage());
-                                        }
-                                    }
-
-                                    @Override
-                                    public void onFinish() {
-                                        totalDone[0]++;
+                                @Override
+                                public void onFinish() {
+                                    try {
+                                        bos.flush();
+                                        bos.close(); // Close the stream on finish
                                         runOnUiThread(() -> {
-                                            tvLog.setText("Downloaded " + totalDone[0] + "/" + totalFiles + " " + fileName);
+                                            totalDone[0]++;
+                                            tvLog.setText("Downloaded " + totalDone[0] + "/" + totalFiles + ": " + fileName);
 
                                             if (totalDone[0] == totalFiles) {
                                                 tvLog.setText("All files downloaded.");
                                                 cleanUpMedia(mediaFileList);
                                             }
                                         });
+                                    } catch (IOException e) {
+                                        Log.e(TAG, "Error closing stream for " + fileName + ": " + e.getMessage());
+                                    }
+                                }
+
+                                @Override
+                                public void onFailure(IDJIError error) {
+                                    Log.e(TAG, "Download failed for " + fileName + ": " + error);
+                                    try {
+                                        bos.close(); // Ensure stream is closed on failure
+                                    } catch (IOException e) {
+                                        Log.e(TAG, "Error closing stream on failure for " + fileName + ": " + e.getMessage());
                                     }
 
-                                    @Override
-                                    public void onFailure(IDJIError error) {
-                                        Log.e(TAG, "Download failed for " + fileName + ": " + error);
-                                        runOnUiThread(() ->
-                                                tvLog.setText("Failed to download " + fileName)
-                                        );
-                                    }
-                                });
+                                    runOnUiThread(() ->
+                                            tvLog.setText("Failed to download " + fileName)
+                                    );
+                                }
+                            });
 
-                            } catch (IOException e) {
-                                Log.e(TAG, "Error creating file: " + e.getMessage());
-                            }
+                        } catch (IOException e) {
+                            Log.e(TAG, "Error creating file " + fileName + ": " + e.getMessage());
                         }
+                    } else {
+                        Log.e(TAG, "Failed to create file: " + fileName);
+                        runOnUiThread(() ->
+                                tvLog.setText("Failed to create file: " + fileName)
+                        );
                     }
+                }
+            }
 
-                    @Override
-                    public void onFailure(@NonNull IDJIError idjiError) {
-                        Log.i(TAG, "pullMediaFileListFromCamera - onFailure: " + idjiError);
-                    }
-                });
+            @Override
+            public void onFailure(@NonNull IDJIError idjiError) {
+                Log.i(TAG, "pullMediaFileListFromCamera - onFailure: " + idjiError);
+            }
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_KMZ_FILE_REQUEST && resultCode == RESULT_OK) {
+            if (data != null) {
+                onActivityResultLoadMission(data.getData());
+            }
+        } else if (requestCode == REQUEST_CODE_OPEN_DOCUMENT_TREE && resultCode == RESULT_OK) {
+            if (data != null) {
+                onActivityResultPullMedia(data.getData());
             }
         }
     }
@@ -837,7 +860,6 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "enableSimulator - onSuccess");
 
-                isSimulatorOn = true;
                 tvSimulator.setText(getString(R.string.true_output));
                 tvHome.setText(getString(R.string.true_output));
                 tvHome.setTextColor(Color.CYAN);
@@ -861,7 +883,6 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess() {
                 Log.i(TAG, "disableSimulator - onSuccess");
 
-                isSimulatorOn = false;
                 tvSimulator.setText(getString(R.string.false_output));
                 tvHome.setTextColor(Color.WHITE);
             }
