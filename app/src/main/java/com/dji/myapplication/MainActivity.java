@@ -511,7 +511,9 @@ public class MainActivity extends AppCompatActivity {
                         final int[] totalDone = {0};
 
                         if (totalFiles == 0) {
-                            Toast.makeText(getApplicationContext(), "Nothing to pull from camera", Toast.LENGTH_SHORT).show();
+                            runOnUiThread(() ->
+                                    tvLog.setText("Nothing to pull from camera")
+                            );
                         }
 
                         DocumentFile pickedDir = DocumentFile.fromTreeUri(getApplicationContext(), treeUri);
@@ -526,9 +528,7 @@ public class MainActivity extends AppCompatActivity {
                                 mediaFile.pullOriginalMediaFileFromCamera(0L, new MediaFileDownloadListener() {
                                     @Override
                                     public void onStart() {
-                                        runOnUiThread(() ->
-                                                Toast.makeText(getApplicationContext(), "Download started for " + fileName, Toast.LENGTH_SHORT).show()
-                                        );
+
                                     }
 
                                     @Override
@@ -553,7 +553,7 @@ public class MainActivity extends AppCompatActivity {
                                     public void onFinish() {
                                         totalDone[0]++;
                                         runOnUiThread(() -> {
-                                            Toast.makeText(getApplicationContext(), "Downloaded " + totalDone[0] + "/" + totalFiles, Toast.LENGTH_SHORT).show();
+                                            tvLog.setText("Downloaded " + totalDone[0] + "/" + totalFiles + " " + fileName);
 
                                             if (totalDone[0] == totalFiles) {
                                                 tvLog.setText("All files downloaded.");
@@ -566,7 +566,7 @@ public class MainActivity extends AppCompatActivity {
                                     public void onFailure(IDJIError error) {
                                         Log.e(TAG, "Download failed for " + fileName + ": " + error);
                                         runOnUiThread(() ->
-                                                Toast.makeText(getApplicationContext(), "Failed to download " + fileName, Toast.LENGTH_SHORT).show()
+                                                tvLog.setText("Failed to download " + fileName)
                                         );
                                     }
                                 });
