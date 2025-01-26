@@ -24,4 +24,12 @@
         android:layout_height="wrap_content"
         android:textColor="#FFFFFF"
         android:text="@string/rtk_switch" />
+
+    <!-- Media ON/OFF switch -->
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/switch_media"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:text="@string/media_switch" />
 </LinearLayout>

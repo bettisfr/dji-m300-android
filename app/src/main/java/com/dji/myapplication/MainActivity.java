@@ -80,6 +80,12 @@ import dji.v5.manager.aircraft.waypoint3.WaypointActionListener;
 import dji.v5.manager.aircraft.waypoint3.WaypointMissionManager;
 import dji.v5.manager.datacenter.MediaDataCenter;
 import dji.v5.manager.datacenter.camera.CameraStreamManager;
+import dji.v5.manager.datacenter.media.MediaFile;
+import dji.v5.manager.datacenter.media.MediaFileDownloadListener;
+import dji.v5.manager.datacenter.media.MediaFileListData;
+import dji.v5.manager.datacenter.media.MediaFileListDataSource;
+import dji.v5.manager.datacenter.media.MediaManager;
+import dji.v5.manager.datacenter.media.PullMediaFileListParam;
 import dji.v5.manager.interfaces.ICameraStreamManager;
 import dji.v5.manager.interfaces.SDKManagerCallback;
 
@@ -89,7 +95,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int PICK_KMZ_FILE_REQUEST = 1234;
     private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
     private final DecimalFormat integerFormat = new DecimalFormat("#");
-
+    private final LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
+    private final LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
     // Other stuff
     private Button btnStartStopMission;
     private Button btnPauseResumeMission;
@@ -99,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvDroneYaw;
     private TextView tvDroneAltitude;
     private TextView tvDroneSpeed;
-//    private TextView tvGimbalPitchYaw;
+    //    private TextView tvGimbalPitchYaw;
 //    private TextView tvRtk;
     private TextView tvHome;
     private TextView tvLog;
@@ -113,10 +120,9 @@ public class MainActivity extends AppCompatActivity {
     private boolean isMissionPaused = false;
     private boolean isRtkWorking = false;
     private boolean isSimulatorOn = false;
+    private final boolean isMediaOn = false;
     private double droneHeading;
     private String currentMissionPath;
-    private final LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
-    private final LocationCoordinate2D droneCurrentLocation = new LocationCoordinate2D(0., 0.);
 
     public static boolean checkGPSCoordinates(double latitude, double longitude) {
         return (latitude > -90 && latitude < 90 && longitude > -180 && longitude < 180) && (latitude != 0f && longitude != 0f);
@@ -130,6 +136,18 @@ public class MainActivity extends AppCompatActivity {
 
         MapLibre.getInstance(this);
 
+        setAppStyle();
+
+        setContentView(R.layout.activity_main);
+        initUI();
+        initRGBCamera();
+        registerApp();
+
+        // Again!
+        setAppStyle();
+    }
+
+    private void setAppStyle() {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
         getWindow().getDecorView().setSystemUiVisibility(
@@ -139,11 +157,13 @@ public class MainActivity extends AppCompatActivity {
         );
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
 
-        setContentView(R.layout.activity_main);
-        initUI();
-        initRGBCamera();
-        registerApp();
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        setAppStyle();
     }
 
     private void setSimulationHome() {
@@ -156,6 +176,7 @@ public class MainActivity extends AppCompatActivity {
     public void initUI() {
         SwitchMaterial switchSimulator = findViewById(R.id.switch_simulator);
         SwitchMaterial switchRTK = findViewById(R.id.switch_rtk);
+        SwitchMaterial switchMedia = findViewById(R.id.switch_media);
         Button btnLoadMission = findViewById(R.id.button_load_mission);
         btnStartStopMission = findViewById(R.id.button_start_stop_mission);
         btnPauseResumeMission = findViewById(R.id.button_pause_resume_mission);
@@ -250,6 +271,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        switchMedia.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                Log.i(TAG, "startMedia");
+                startMedia();
+            } else {
+                Log.i(TAG, "stopMedia");
+                stopMedia();
+            }
+        });
+
         btnLoadMission.setOnClickListener(view -> {
             Log.i(TAG, "loadMission");
             loadMission();
@@ -296,6 +327,83 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    private void startMedia() {
+        tvLog.setText("Start pulling files from H20");
+
+        MediaFileListDataSource mediaSource = new MediaFileListDataSource.Builder().setIndexType(ComponentIndexType.LEFT_OR_MAIN).build();
+        MediaManager.getInstance().setMediaFileDataSource(mediaSource);
+
+        PullMediaFileListParam param = new PullMediaFileListParam.Builder().mediaFileIndex(-1).build();
+        MediaManager.getInstance().pullMediaFileListFromCamera(param, new CommonCallbacks.CompletionCallback() {
+            @Override
+            public void onSuccess() {
+                Log.i(TAG, "pullMediaFileListFromCamera - onSuccess");
+
+                MediaFileListData fileListData = MediaManager.getInstance().getMediaFileListData();
+                List<MediaFile> data = fileListData.getData();
+
+                int totalFiles = data.size();
+                final int[] totalDone = {0};
+
+                for (MediaFile elem : data) {
+                    elem.pullOriginalMediaFileFromCamera(0L, new MediaFileDownloadListener() {
+                        @Override
+                        public void onStart() {
+
+                        }
+
+                        @Override
+                        public void onProgress(long total, long current) {
+
+                        }
+
+                        @Override
+                        public void onRealtimeDataUpdate(byte[] data, long position) {
+
+                        }
+
+                        @Override
+                        public void onFinish() {
+                            totalDone[0]++;
+                            tvLog.setText("Finished " + totalDone[0] + "/" + totalFiles + " : " + elem.getFileName());
+
+                            if (totalDone[0] == totalFiles) {
+                                MediaManager.getInstance().deleteMediaFiles(data, new CommonCallbacks.CompletionCallback() {
+                                    @Override
+                                    public void onSuccess() {
+                                        Log.i(TAG,"deleteMediaFiles onSuccess");
+                                        tvLog.setText("H20 memory cleaned!");
+                                    }
+
+                                    @Override
+                                    public void onFailure(@NonNull IDJIError idjiError) {
+                                        Log.i(TAG,"deleteMediaFiles onFailure " + idjiError);
+                                    }
+                                });
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(IDJIError error) {
+                            Log.i(TAG,"onFailure " + elem.getFileName() + " " + error);
+                        }
+                    });
+                }
+
+
+            }
+
+            @Override
+            public void onFailure(@NonNull IDJIError idjiError) {
+                Log.i(TAG, "pullMediaFileListFromCamera - onFailure: " + idjiError);
+            }
+        });
+    }
+
+    private void stopMedia() {
+        tvLog.setText("Stop pulling files from H20");
     }
 
     private void openFileChooser() {

@@ -33,6 +33,7 @@
 
     <string name="simulator_switch">Simulator</string>
     <string name="rtk_switch">RTK</string>
+    <string name="media_switch">Media</string>
 
     <string name="map_button">Map</string>
     <string name="camera_button">Camera</string>
