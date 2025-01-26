@@ -24,10 +24,12 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.documentfile.provider.DocumentFile;
 
 import com.dji.wpmzsdk.common.data.KMZInfo;
 import com.dji.wpmzsdk.manager.WPMZManager;
@@ -47,7 +49,10 @@ import org.maplibre.geojson.FeatureCollection;
 import org.maplibre.geojson.LineString;
 import org.maplibre.geojson.Point;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -93,6 +98,7 @@ import dji.v5.manager.interfaces.SDKManagerCallback;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int PICK_KMZ_FILE_REQUEST = 1234;
+    private static final int REQUEST_CODE_OPEN_DOCUMENT_TREE = 5678;
     private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
     private final DecimalFormat integerFormat = new DecimalFormat("#");
     private final LocationCoordinate2D droneHomeLocation = new LocationCoordinate2D(0., 0.);
@@ -176,7 +182,7 @@ public class MainActivity extends AppCompatActivity {
     public void initUI() {
         SwitchMaterial switchSimulator = findViewById(R.id.switch_simulator);
         SwitchMaterial switchRTK = findViewById(R.id.switch_rtk);
-        SwitchMaterial switchMedia = findViewById(R.id.switch_media);
+        Button btnPullMedia = findViewById(R.id.button_pull_media);
         Button btnLoadMission = findViewById(R.id.button_load_mission);
         btnStartStopMission = findViewById(R.id.button_start_stop_mission);
         btnPauseResumeMission = findViewById(R.id.button_pause_resume_mission);
@@ -271,14 +277,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        switchMedia.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
-                Log.i(TAG, "startMedia");
-                startMedia();
-            } else {
-                Log.i(TAG, "stopMedia");
-                stopMedia();
-            }
+        btnPullMedia.setOnClickListener(view -> {
+            Log.i(TAG, "pullMedia");
+            pullMedia();
         });
 
         btnLoadMission.setOnClickListener(view -> {
@@ -329,81 +330,50 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void startMedia() {
-        tvLog.setText("Start pulling files from H20");
-
-        MediaFileListDataSource mediaSource = new MediaFileListDataSource.Builder().setIndexType(ComponentIndexType.LEFT_OR_MAIN).build();
-        MediaManager.getInstance().setMediaFileDataSource(mediaSource);
-
-        PullMediaFileListParam param = new PullMediaFileListParam.Builder().mediaFileIndex(-1).build();
-        MediaManager.getInstance().pullMediaFileListFromCamera(param, new CommonCallbacks.CompletionCallback() {
+    private void cleanUpMedia(List<MediaFile> mediaFileList) {
+        MediaDataCenter.getInstance().getMediaManager().enable(new CommonCallbacks.CompletionCallback() {
             @Override
             public void onSuccess() {
-                Log.i(TAG, "pullMediaFileListFromCamera - onSuccess");
+                MediaManager.getInstance().deleteMediaFiles(mediaFileList, new CommonCallbacks.CompletionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Log.i(TAG, "Media files deleted.");
+                        runOnUiThread(() -> tvLog.setText("H20 memory cleaned!"));
 
-                MediaFileListData fileListData = MediaManager.getInstance().getMediaFileListData();
-                List<MediaFile> data = fileListData.getData();
-
-                int totalFiles = data.size();
-                final int[] totalDone = {0};
-
-                for (MediaFile elem : data) {
-                    elem.pullOriginalMediaFileFromCamera(0L, new MediaFileDownloadListener() {
-                        @Override
-                        public void onStart() {
-
-                        }
-
-                        @Override
-                        public void onProgress(long total, long current) {
-
-                        }
-
-                        @Override
-                        public void onRealtimeDataUpdate(byte[] data, long position) {
-
-                        }
-
-                        @Override
-                        public void onFinish() {
-                            totalDone[0]++;
-                            tvLog.setText("Finished " + totalDone[0] + "/" + totalFiles + " : " + elem.getFileName());
-
-                            if (totalDone[0] == totalFiles) {
-                                MediaManager.getInstance().deleteMediaFiles(data, new CommonCallbacks.CompletionCallback() {
-                                    @Override
-                                    public void onSuccess() {
-                                        Log.i(TAG,"deleteMediaFiles onSuccess");
-                                        tvLog.setText("H20 memory cleaned!");
-                                    }
-
-                                    @Override
-                                    public void onFailure(@NonNull IDJIError idjiError) {
-                                        Log.i(TAG,"deleteMediaFiles onFailure " + idjiError);
-                                    }
-                                });
+                        MediaDataCenter.getInstance().getMediaManager().disable(new CommonCallbacks.CompletionCallback() {
+                            @Override
+                            public void onSuccess() {
+                                Log.i(TAG, "MediaManager disabled successfully.");
                             }
-                        }
 
-                        @Override
-                        public void onFailure(IDJIError error) {
-                            Log.i(TAG,"onFailure " + elem.getFileName() + " " + error);
-                        }
-                    });
-                }
+                            @Override
+                            public void onFailure(@NonNull IDJIError idjiError) {
+                                Log.e(TAG, "Failed to disable MediaManager: " + idjiError);
+                            }
+                        });
+                    }
 
-
+                    @Override
+                    public void onFailure(@NonNull IDJIError idjiError) {
+                        Log.e(TAG, "Failed to delete media files: " + idjiError);
+                    }
+                });
             }
 
             @Override
             public void onFailure(@NonNull IDJIError idjiError) {
-                Log.i(TAG, "pullMediaFileListFromCamera - onFailure: " + idjiError);
+                Log.e(TAG, "Failed to enable MediaManager: " + idjiError);
             }
         });
     }
 
-    private void stopMedia() {
-        tvLog.setText("Stop pulling files from H20");
+
+    private void pullMedia() {
+        tvLog.setText("Start pulling files from H20");
+
+        // Select a destination folder here
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        startActivityForResult(intent, REQUEST_CODE_OPEN_DOCUMENT_TREE);
     }
 
     private void openFileChooser() {
@@ -520,6 +490,98 @@ public class MainActivity extends AppCompatActivity {
                         }
                     });
                 }
+            }
+        } else if (requestCode == REQUEST_CODE_OPEN_DOCUMENT_TREE && resultCode == RESULT_OK) {
+            if (data != null) {
+                Uri treeUri = data.getData();
+
+                MediaFileListDataSource mediaSource = new MediaFileListDataSource.Builder().setIndexType(ComponentIndexType.LEFT_OR_MAIN).build();
+                MediaManager.getInstance().setMediaFileDataSource(mediaSource);
+
+                PullMediaFileListParam param = new PullMediaFileListParam.Builder().mediaFileIndex(-1).build();
+                MediaManager.getInstance().pullMediaFileListFromCamera(param, new CommonCallbacks.CompletionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Log.i(TAG, "pullMediaFileListFromCamera - onSuccess");
+
+                        MediaFileListData fileListData = MediaManager.getInstance().getMediaFileListData();
+                        List<MediaFile> mediaFileList = fileListData.getData();
+
+                        int totalFiles = mediaFileList.size();
+                        final int[] totalDone = {0};
+
+                        if (totalFiles == 0) {
+                            Toast.makeText(getApplicationContext(), "Nothing to pull from camera", Toast.LENGTH_SHORT).show();
+                        }
+
+                        DocumentFile pickedDir = DocumentFile.fromTreeUri(getApplicationContext(), treeUri);
+
+                        for (MediaFile mediaFile : mediaFileList) {
+                            String fileName = mediaFile.getFileName();
+                            DocumentFile newFile = pickedDir.createFile("application/octet-stream", fileName);
+
+                            try (OutputStream outputStream = getContentResolver().openOutputStream(newFile.getUri());
+                                 BufferedOutputStream bos = new BufferedOutputStream(outputStream)) {
+
+                                mediaFile.pullOriginalMediaFileFromCamera(0L, new MediaFileDownloadListener() {
+                                    @Override
+                                    public void onStart() {
+                                        runOnUiThread(() ->
+                                                Toast.makeText(getApplicationContext(), "Download started for " + fileName, Toast.LENGTH_SHORT).show()
+                                        );
+                                    }
+
+                                    @Override
+                                    public void onProgress(long total, long current) {
+                                        int progress = (int) (100 * current / total);
+                                        runOnUiThread(() ->
+                                                Log.i(TAG, "Download progress for " + fileName + ": " + progress + "%")
+                                        );
+                                    }
+
+                                    @Override
+                                    public void onRealtimeDataUpdate(byte[] data, long position) {
+                                        try {
+                                            bos.write(data);
+                                            bos.flush();
+                                        } catch (IOException e) {
+                                            Log.e(TAG, "Write error: " + e.getMessage());
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onFinish() {
+                                        totalDone[0]++;
+                                        runOnUiThread(() -> {
+                                            Toast.makeText(getApplicationContext(), "Downloaded " + totalDone[0] + "/" + totalFiles, Toast.LENGTH_SHORT).show();
+
+                                            if (totalDone[0] == totalFiles) {
+                                                tvLog.setText("All files downloaded.");
+                                                cleanUpMedia(mediaFileList);
+                                            }
+                                        });
+                                    }
+
+                                    @Override
+                                    public void onFailure(IDJIError error) {
+                                        Log.e(TAG, "Download failed for " + fileName + ": " + error);
+                                        runOnUiThread(() ->
+                                                Toast.makeText(getApplicationContext(), "Failed to download " + fileName, Toast.LENGTH_SHORT).show()
+                                        );
+                                    }
+                                });
+
+                            } catch (IOException e) {
+                                Log.e(TAG, "Error creating file: " + e.getMessage());
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(@NonNull IDJIError idjiError) {
+                        Log.i(TAG, "pullMediaFileListFromCamera - onFailure: " + idjiError);
+                    }
+                });
             }
         }
     }
