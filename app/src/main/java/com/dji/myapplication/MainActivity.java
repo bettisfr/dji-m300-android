@@ -142,7 +142,7 @@ public class MainActivity extends AppCompatActivity {
         setAppStyle();
 
         setContentView(R.layout.activity_main);
-        initUI();
+        initUI(savedInstanceState);
         initRGBCamera();
         registerApp();
 
@@ -167,6 +167,58 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
 
         setAppStyle();
+
+        if (mapView != null) {
+            mapView.onResume();
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (mapView != null) {
+            mapView.onStart();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        if (mapView != null) {
+            mapView.onPause();
+        }
+        super.onPause();
+    }
+
+    @Override
+    protected void onStop() {
+        if (mapView != null) {
+            mapView.onStop();
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (mapView != null) {
+            mapView.onDestroy();
+        }
+        super.onDestroy();
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        if (mapView != null) {
+            mapView.onLowMemory();
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (mapView != null) {
+            mapView.onSaveInstanceState(outState);
+        }
     }
 
     private void setSimulationHome() {
@@ -176,7 +228,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void initUI() {
+    public void initUI(@Nullable Bundle savedInstanceState) {
         SwitchMaterial switchSimulator = findViewById(R.id.switch_simulator);
         SwitchMaterial switchRTK = findViewById(R.id.switch_rtk);
         Button btnPullMedia = findViewById(R.id.button_pull_media);
@@ -199,6 +251,7 @@ public class MainActivity extends AppCompatActivity {
         Button toggleButton = findViewById(R.id.button_toggle_view);
         svCameraStream = findViewById(R.id.sv_camera_stream);
         mapView = findViewById(R.id.map_view);
+        mapView.onCreate(savedInstanceState);
         mapView.setVisibility(View.GONE);
 
         View slidingRightPanel = findViewById(R.id.sliding_panel_right);
@@ -386,6 +439,10 @@ public class MainActivity extends AppCompatActivity {
             currentMissionPath = tempFile.getAbsolutePath();
 
             KMZInfo kmzInfo = WPMZManager.getInstance().getKMZInfo(currentMissionPath);
+            if (kmzInfo == null) {
+                tvLog.setText("Invalid KMZ file");
+                return;
+            }
 
             setMissionOnMap(kmzInfo);
 
@@ -504,9 +561,14 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(() ->
                             tvLog.setText("Nothing to pull from camera")
                     );
+                    return;
                 }
 
                 DocumentFile pickedDir = DocumentFile.fromTreeUri(getApplicationContext(), treeUri);
+                if (pickedDir == null) {
+                    runOnUiThread(() -> tvLog.setText("Invalid destination folder"));
+                    return;
+                }
 
                 for (MediaFile mediaFile : mediaFileList) {
                     String fileName = mediaFile.getFileName();
@@ -515,6 +577,12 @@ public class MainActivity extends AppCompatActivity {
                     if (newFile != null) {
                         try {
                             OutputStream outputStream = getContentResolver().openOutputStream(newFile.getUri());
+                            if (outputStream == null) {
+                                runOnUiThread(() ->
+                                        tvLog.setText("Failed to open output stream for " + fileName)
+                                );
+                                continue;
+                            }
                             BufferedOutputStream bos = new BufferedOutputStream(outputStream);
 
                             mediaFile.pullOriginalMediaFileFromCamera(0L, new MediaFileDownloadListener() {
@@ -931,9 +999,24 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        List<WaylineExecuteWaypoint> waypoints;
+        try {
+            waypoints = kmzInfo.getWaylineWaylinesParseInfo()
+                    .getWaylines()
+                    .get(0)
+                    .getWaypoints();
+        } catch (Exception e) {
+            tvLog.setText("KMZ mission data is invalid");
+            return;
+        }
+        if (waypoints == null || waypoints.isEmpty()) {
+            tvLog.setText("KMZ has no waypoints");
+            return;
+        }
+
         // Remove existing layers and sources to avoid duplication
-        if (mapStyle.getLayer("home-marker-layer") != null) {
-            mapStyle.removeLayer("home-marker-layer");
+        if (mapStyle.getLayer("mission-home-layer") != null) {
+            mapStyle.removeLayer("mission-home-layer");
         }
         if (mapStyle.getLayer("waypoint-marker-layer") != null) {
             mapStyle.removeLayer("waypoint-marker-layer");
@@ -947,8 +1030,8 @@ public class MainActivity extends AppCompatActivity {
         if (mapStyle.getLayer("waypoint-to-waypoint-layer") != null) {
             mapStyle.removeLayer("waypoint-to-waypoint-layer");
         }
-        if (mapStyle.getSource("home-marker-source") != null) {
-            mapStyle.removeSource("home-marker-source");
+        if (mapStyle.getSource("mission-home-source") != null) {
+            mapStyle.removeSource("mission-home-source");
         }
         if (mapStyle.getSource("waypoint-marker-source") != null) {
             mapStyle.removeSource("waypoint-marker-source");
@@ -966,11 +1049,7 @@ public class MainActivity extends AppCompatActivity {
         // Add magenta line from home to the first waypoint
         List<Point> homeToFirstWaypointPoints = new ArrayList<>();
         homeToFirstWaypointPoints.add(Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude()));
-        WaylineExecuteWaypoint firstWaypoint = kmzInfo.getWaylineWaylinesParseInfo()
-                .getWaylines()
-                .get(0)
-                .getWaypoints()
-                .get(0);  // Get the first waypoint
+        WaylineExecuteWaypoint firstWaypoint = waypoints.get(0);  // Get the first waypoint
         homeToFirstWaypointPoints.add(Point.fromLngLat(firstWaypoint.getLocation().getLongitude(), firstWaypoint.getLocation().getLatitude()));
 
         GeoJsonSource homeToFirstWaypointSource = new GeoJsonSource("home-to-firstwaypoint-source", LineString.fromLngLats(homeToFirstWaypointPoints));
@@ -986,10 +1065,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Add magenta line from last waypoint to home
         List<Point> lastWaypointToHomePoints = new ArrayList<>();
-        List<WaylineExecuteWaypoint> waypoints = kmzInfo.getWaylineWaylinesParseInfo()
-                .getWaylines()
-                .get(0)
-                .getWaypoints();
         WaylineExecuteWaypoint lastWaypoint = waypoints.get(waypoints.size() - 1);  // Get the last waypoint
         lastWaypointToHomePoints.add(Point.fromLngLat(lastWaypoint.getLocation().getLongitude(), lastWaypoint.getLocation().getLatitude()));
         lastWaypointToHomePoints.add(Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude()));
@@ -1031,13 +1106,13 @@ public class MainActivity extends AppCompatActivity {
 
         // Add home location marker (green) at the end
         mapStyle.addImage("home-marker-icon", BitmapFactory.decodeResource(getResources(), R.drawable.home_location));
-        GeoJsonSource homeMarkerSource = new GeoJsonSource("home-marker-source");
+        GeoJsonSource homeMarkerSource = new GeoJsonSource("mission-home-source");
         List<Feature> homeFeatures = new ArrayList<>();
         homeFeatures.add(Feature.fromGeometry(Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude())));
         homeMarkerSource.setGeoJson(FeatureCollection.fromFeatures(homeFeatures));
         mapStyle.addSource(homeMarkerSource);
 
-        SymbolLayer homeMarkerLayer = new SymbolLayer("home-marker-layer", "home-marker-source");
+        SymbolLayer homeMarkerLayer = new SymbolLayer("mission-home-layer", "mission-home-source");
         homeMarkerLayer.setProperties(
                 iconImage("home-marker-icon"),
                 iconAllowOverlap(true),
@@ -1073,22 +1148,22 @@ public class MainActivity extends AppCompatActivity {
         if (mapStyle != null) {
             // Update home location marker (no rotation)
             Bitmap homeIconBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.home_location);
-            if (mapStyle.getSource("home-location-source") != null) {
-                GeoJsonSource source = mapStyle.getSourceAs("home-location-source");
+            if (mapStyle.getSource("live-home-source") != null) {
+                GeoJsonSource source = mapStyle.getSourceAs("live-home-source");
                 if (source != null) {
                     source.setGeoJson(Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude()));
                 }
             } else {
-                GeoJsonSource source = new GeoJsonSource("home-location-source", Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude()));
+                GeoJsonSource source = new GeoJsonSource("live-home-source", Point.fromLngLat(droneHomeLocation.getLongitude(), droneHomeLocation.getLatitude()));
                 mapStyle.addSource(source);
-                SymbolLayer layer = new SymbolLayer("home-marker-layer", "home-location-source");
+                SymbolLayer layer = new SymbolLayer("live-home-layer", "live-home-source");
                 layer.setProperties(
-                        iconImage("marker-home-icon"),
+                        iconImage("live-home-icon"),
                         iconAllowOverlap(true),
                         iconIgnorePlacement(true)
                 );
                 mapStyle.addLayer(layer);
-                mapStyle.addImage("marker-home-icon", homeIconBitmap);
+                mapStyle.addImage("live-home-icon", homeIconBitmap);
             }
 
             // Update current location marker (only if valid GPS coordinates) with rotation for the drone
@@ -1220,7 +1295,7 @@ public class MainActivity extends AppCompatActivity {
 
                 Location currentLocation = new Location("current");
                 currentLocation.setLatitude(droneCurrentLocation.getLatitude());
-                currentLocation.setLongitude(droneHomeLocation.getLongitude());
+                currentLocation.setLongitude(droneCurrentLocation.getLongitude());
 
                 updateDroneHomeAndCurrentLocation();
             }
