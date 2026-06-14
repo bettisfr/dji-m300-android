@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#101418"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="MSDK to Raspberry Pi MOP Test"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Channel 49152 / ONBOARD / STABLE"
+        android:textColor="#AAB7C4"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/mop_connect"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:text="Connect" />
+
+        <TextView
+            android:id="@+id/mop_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:text="Initializing..."
+            android:textColor="#FFFFFF"
+            android:textSize="18sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/mop_ping"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ping" />
+
+        <Button
+            android:id="@+id/mop_infer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:backgroundTint="#D32F2F"
+            android:text="Infer"
+            android:textColor="#FFFFFF" />
+
+        <Space
+            android:layout_width="20dp"
+            android:layout_height="1dp" />
+
+        <Button
+            android:id="@+id/mop_yaw_minus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Yaw -10" />
+
+        <Button
+            android:id="@+id/mop_yaw_plus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="Yaw +10" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/mop_pitch_minus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pitch -10" />
+
+        <Button
+            android:id="@+id/mop_pitch_plus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="Pitch +10" />
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/mop_log_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:layout_weight="1"
+        android:background="#080B0E"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/mop_log"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textColor="#B9F6CA"
+            android:textIsSelectable="true"
+            android:textSize="14sp" />
+    </ScrollView>
+
+</LinearLayout>
