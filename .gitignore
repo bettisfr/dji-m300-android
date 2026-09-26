@@ -1,2 +1,8 @@
 .gradle
 local.properties
+
+# Local Codex project metadata
+.codex-project-id
+
+# Local Gradle cache
+.gradle-local/
